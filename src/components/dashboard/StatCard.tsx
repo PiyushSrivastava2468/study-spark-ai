@@ -53,19 +53,19 @@ export function StatCard({
       />
 
       <div className="relative z-10">
-        <div className="flex items-start justify-between mb-4">
+        <div className="flex items-start justify-between mb-2 sm:mb-4">
           <div
             className={cn(
-              "p-3 rounded-xl",
+              "p-2 sm:p-3 rounded-lg sm:rounded-xl",
               iconBgStyles[gradient]
             )}
           >
-            <Icon className="w-5 h-5" />
+            <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
           {trend && (
             <span
               className={cn(
-                "text-sm font-medium px-2 py-1 rounded-lg",
+                "text-xs sm:text-sm font-medium px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-lg",
                 trend.positive
                   ? "bg-emerald-500/10 text-emerald-500"
                   : "bg-red-500/10 text-red-500"
@@ -76,14 +76,14 @@ export function StatCard({
           )}
         </div>
 
-        <h3 className="text-sm font-medium text-muted-foreground mb-1">
+        <h3 className="text-xs sm:text-sm font-medium text-muted-foreground mb-0.5 sm:mb-1">
           {title}
         </h3>
-        <p className="text-3xl font-display font-bold text-foreground animate-count-up">
+        <p className="text-xl sm:text-3xl font-display font-bold text-foreground animate-count-up">
           {value}
         </p>
         {subtitle && (
-          <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 sm:mt-1">{subtitle}</p>
         )}
       </div>
     </div>

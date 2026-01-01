@@ -12,19 +12,19 @@ export default function Dashboard() {
     currentHour < 12 ? "Good morning" : currentHour < 18 ? "Good afternoon" : "Good evening";
 
   return (
-    <div className="p-8 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="mb-8 animate-fade-in">
-        <h1 className="text-3xl font-display font-bold text-foreground mb-2">
+      <div className="mb-6 sm:mb-8 animate-fade-in">
+        <h1 className="text-2xl sm:text-3xl font-display font-bold text-foreground mb-2">
           {greeting}, Student! 👋
         </h1>
-        <p className="text-muted-foreground">
+        <p className="text-muted-foreground text-sm sm:text-base">
           Let's make today productive. You've got this!
         </p>
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5 mb-6 sm:mb-8">
         <div className="animate-fade-in stagger-1 opacity-0">
           <StatCard
             title="Focus Today"
@@ -66,7 +66,7 @@ export default function Dashboard() {
       </div>
 
       {/* Main Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Left Column */}
         <div className="lg:col-span-2 space-y-6">
           <div className="animate-fade-in stagger-3 opacity-0">
