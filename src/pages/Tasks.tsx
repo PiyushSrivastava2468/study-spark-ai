@@ -9,6 +9,7 @@ import {
   Clock,
   Trash2,
   Edit2,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,16 +28,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-
-interface Task {
-  id: string;
-  title: string;
-  description?: string;
-  subject: string;
-  priority: "low" | "medium" | "high";
-  dueDate: string;
-  completed: boolean;
-}
+import { useAppData } from "@/contexts/AppDataContext";
+import { Task } from "@/hooks/useTasks";
 
 const subjects = [
   "Mathematics",
@@ -47,43 +40,6 @@ const subjects = [
   "Business Studies",
 ];
 
-const initialTasks: Task[] = [
-  {
-    id: "1",
-    title: "Complete Calculus Assignment",
-    description: "Chapter 5 problems 1-20",
-    subject: "Mathematics",
-    priority: "high",
-    dueDate: "2024-12-20",
-    completed: false,
-  },
-  {
-    id: "2",
-    title: "Read Chapter 5 - Organic Chemistry",
-    subject: "Chemistry",
-    priority: "medium",
-    dueDate: "2024-12-21",
-    completed: false,
-  },
-  {
-    id: "3",
-    title: "Physics Lab Report",
-    description: "Motion and Forces experiment",
-    subject: "Physics",
-    priority: "high",
-    dueDate: "2024-12-19",
-    completed: true,
-  },
-  {
-    id: "4",
-    title: "Data Structures Review",
-    subject: "Computer Science",
-    priority: "low",
-    dueDate: "2024-12-25",
-    completed: false,
-  },
-];
-
 const priorityColors = {
   low: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
   medium: "bg-yellow-500/10 text-yellow-500 border-yellow-500/20",
@@ -91,12 +47,13 @@ const priorityColors = {
 };
 
 export default function Tasks() {
-  const [tasks, setTasks] = useState<Task[]>(initialTasks);
+  const { tasks, addTask, updateTask, deleteTask, toggleTask } = useAppData();
   const [view, setView] = useState<"list" | "calendar">("list");
   const [filter, setFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [newTask, setNewTask] = useState({
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [formData, setFormData] = useState({
     title: "",
     description: "",
     subject: "",
@@ -104,35 +61,33 @@ export default function Tasks() {
     dueDate: "",
   });
 
-  const toggleTask = (id: string) => {
-    setTasks((prev) =>
-      prev.map((task) =>
-        task.id === id ? { ...task, completed: !task.completed } : task
-      )
-    );
+  const resetForm = () => {
+    setFormData({ title: "", description: "", subject: "", priority: "medium", dueDate: "" });
+    setEditingTask(null);
   };
 
-  const deleteTask = (id: string) => {
-    setTasks((prev) => prev.filter((task) => task.id !== id));
-  };
-
-  const addTask = () => {
-    if (!newTask.title || !newTask.subject || !newTask.dueDate) return;
+  const handleSubmit = () => {
+    if (!formData.title || !formData.subject || !formData.dueDate) return;
     
-    const task: Task = {
-      id: Date.now().toString(),
-      ...newTask,
-      completed: false,
-    };
-    setTasks((prev) => [task, ...prev]);
-    setNewTask({
-      title: "",
-      description: "",
-      subject: "",
-      priority: "medium",
-      dueDate: "",
-    });
+    if (editingTask) {
+      updateTask(editingTask.id, formData);
+    } else {
+      addTask(formData);
+    }
+    resetForm();
     setIsDialogOpen(false);
+  };
+
+  const handleEdit = (task: Task) => {
+    setEditingTask(task);
+    setFormData({
+      title: task.title,
+      description: task.description || "",
+      subject: task.subject,
+      priority: task.priority,
+      dueDate: task.dueDate,
+    });
+    setIsDialogOpen(true);
   };
 
   const filteredTasks = tasks.filter((task) => {
@@ -146,18 +101,17 @@ export default function Tasks() {
   });
 
   return (
-    <div className="p-8 max-w-6xl mx-auto">
-      {/* Header */}
+    <div className="p-4 sm:p-8 max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-8 animate-fade-in">
         <div>
-          <h1 className="text-3xl font-display font-bold text-foreground mb-2">
+          <h1 className="text-2xl sm:text-3xl font-display font-bold text-foreground mb-2">
             Tasks & Assignments
           </h1>
           <p className="text-muted-foreground">
             {tasks.filter((t) => !t.completed).length} pending tasks
           </p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
           <DialogTrigger asChild>
             <Button className="btn-gradient rounded-xl">
               <Plus className="w-4 h-4 mr-2" />
@@ -166,77 +120,48 @@ export default function Tasks() {
           </DialogTrigger>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>Create New Task</DialogTitle>
+              <DialogTitle>{editingTask ? "Edit Task" : "Create New Task"}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 mt-4">
               <Input
                 placeholder="Task title"
-                value={newTask.title}
-                onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
-                className="input-focus"
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
               />
               <Input
                 placeholder="Description (optional)"
-                value={newTask.description}
-                onChange={(e) =>
-                  setNewTask({ ...newTask, description: e.target.value })
-                }
-                className="input-focus"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               />
-              <Select
-                value={newTask.subject}
-                onValueChange={(value) => setNewTask({ ...newTask, subject: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select subject" />
-                </SelectTrigger>
+              <Select value={formData.subject} onValueChange={(value) => setFormData({ ...formData, subject: value })}>
+                <SelectTrigger><SelectValue placeholder="Select subject" /></SelectTrigger>
                 <SelectContent>
                   {subjects.map((subject) => (
-                    <SelectItem key={subject} value={subject}>
-                      {subject}
-                    </SelectItem>
+                    <SelectItem key={subject} value={subject}>{subject}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <Select
-                value={newTask.priority}
-                onValueChange={(value: "low" | "medium" | "high") =>
-                  setNewTask({ ...newTask, priority: value })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Priority" />
-                </SelectTrigger>
+              <Select value={formData.priority} onValueChange={(value: "low" | "medium" | "high") => setFormData({ ...formData, priority: value })}>
+                <SelectTrigger><SelectValue placeholder="Priority" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="low">Low</SelectItem>
                   <SelectItem value="medium">Medium</SelectItem>
                   <SelectItem value="high">High</SelectItem>
                 </SelectContent>
               </Select>
-              <Input
-                type="date"
-                value={newTask.dueDate}
-                onChange={(e) => setNewTask({ ...newTask, dueDate: e.target.value })}
-                className="input-focus"
-              />
-              <Button onClick={addTask} className="w-full btn-gradient rounded-xl">
-                Create Task
+              <Input type="date" value={formData.dueDate} onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })} />
+              <Button onClick={handleSubmit} className="w-full btn-gradient rounded-xl">
+                {editingTask ? "Save Changes" : "Create Task"}
               </Button>
             </div>
           </DialogContent>
         </Dialog>
       </div>
 
-      {/* Filters & Search */}
-      <div className="flex flex-col sm:flex-row gap-4 mb-6 animate-fade-in stagger-1 opacity-0">
+      <div className="flex flex-col sm:flex-row gap-4 mb-6">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Search tasks..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 input-focus"
-          />
+          <Input placeholder="Search tasks..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
         </div>
         <Select value={filter} onValueChange={setFilter}>
           <SelectTrigger className="w-[180px]">
@@ -248,109 +173,34 @@ export default function Tasks() {
             <SelectItem value="pending">Pending</SelectItem>
             <SelectItem value="completed">Completed</SelectItem>
             {subjects.map((subject) => (
-              <SelectItem key={subject} value={subject}>
-                {subject}
-              </SelectItem>
+              <SelectItem key={subject} value={subject}>{subject}</SelectItem>
             ))}
           </SelectContent>
         </Select>
-        <div className="flex rounded-xl border border-border overflow-hidden">
-          <button
-            onClick={() => setView("list")}
-            className={cn(
-              "px-4 py-2 transition-colors",
-              view === "list" ? "bg-primary text-primary-foreground" : "hover:bg-secondary"
-            )}
-          >
-            <List className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => setView("calendar")}
-            className={cn(
-              "px-4 py-2 transition-colors",
-              view === "calendar" ? "bg-primary text-primary-foreground" : "hover:bg-secondary"
-            )}
-          >
-            <Calendar className="w-4 h-4" />
-          </button>
-        </div>
       </div>
 
-      {/* Tasks List */}
       <div className="space-y-3">
         {filteredTasks.map((task, index) => (
-          <div
-            key={task.id}
-            className={cn(
-              "glass-card rounded-2xl p-5 transition-all duration-200 group animate-fade-in opacity-0",
-              task.completed && "opacity-60"
-            )}
-            style={{ animationDelay: `${(index + 2) * 50}ms` }}
-          >
+          <div key={task.id} className={cn("glass-card rounded-2xl p-5 transition-all duration-200 group", task.completed && "opacity-60")}>
             <div className="flex items-start gap-4">
-              {/* Checkbox */}
-              <button
-                onClick={() => toggleTask(task.id)}
-                className={cn(
-                  "w-6 h-6 rounded-lg border-2 flex items-center justify-center flex-shrink-0 mt-0.5 transition-all",
-                  task.completed
-                    ? "bg-primary border-primary"
-                    : "border-muted-foreground/30 hover:border-primary"
-                )}
-              >
+              <button onClick={() => toggleTask(task.id)} className={cn("w-6 h-6 rounded-lg border-2 flex items-center justify-center flex-shrink-0 mt-0.5 transition-all", task.completed ? "bg-primary border-primary" : "border-muted-foreground/30 hover:border-primary")}>
                 {task.completed && <Check className="w-4 h-4 text-primary-foreground" />}
               </button>
-
-              {/* Content */}
               <div className="flex-1 min-w-0">
-                <h3
-                  className={cn(
-                    "font-semibold text-foreground mb-1",
-                    task.completed && "line-through text-muted-foreground"
-                  )}
-                >
-                  {task.title}
-                </h3>
-                {task.description && (
-                  <p className="text-sm text-muted-foreground mb-2">
-                    {task.description}
-                  </p>
-                )}
+                <h3 className={cn("font-semibold text-foreground mb-1", task.completed && "line-through text-muted-foreground")}>{task.title}</h3>
+                {task.description && <p className="text-sm text-muted-foreground mb-2">{task.description}</p>}
                 <div className="flex items-center gap-3 flex-wrap">
-                  <span className="text-xs px-3 py-1 rounded-full bg-secondary text-secondary-foreground">
-                    {task.subject}
-                  </span>
-                  <span
-                    className={cn(
-                      "text-xs px-3 py-1 rounded-full border",
-                      priorityColors[task.priority]
-                    )}
-                  >
-                    {task.priority}
-                  </span>
+                  <span className="text-xs px-3 py-1 rounded-full bg-secondary text-secondary-foreground">{task.subject}</span>
+                  <span className={cn("text-xs px-3 py-1 rounded-full border", priorityColors[task.priority])}>{task.priority}</span>
                   <span className="flex items-center gap-1 text-xs text-muted-foreground">
                     <Clock className="w-3 h-3" />
-                    {new Date(task.dueDate).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                    })}
+                    {new Date(task.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                   </span>
                 </div>
               </div>
-
-              {/* Actions */}
               <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Button variant="ghost" size="icon" className="rounded-full h-8 w-8">
-                  <Edit2 className="w-4 h-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="rounded-full h-8 w-8 text-destructive hover:text-destructive"
-                  onClick={() => deleteTask(task.id)}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
+                <Button variant="ghost" size="icon" className="rounded-full h-8 w-8" onClick={() => handleEdit(task)}><Edit2 className="w-4 h-4" /></Button>
+                <Button variant="ghost" size="icon" className="rounded-full h-8 w-8 text-destructive hover:text-destructive" onClick={() => deleteTask(task.id)}><Trash2 className="w-4 h-4" /></Button>
               </div>
             </div>
           </div>
@@ -358,8 +208,12 @@ export default function Tasks() {
       </div>
 
       {filteredTasks.length === 0 && (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">No tasks found</p>
+        <div className="text-center py-12 glass-card rounded-2xl">
+          <CheckSquare className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+          <p className="text-muted-foreground mb-4">No tasks found</p>
+          <Button onClick={() => setIsDialogOpen(true)} className="btn-gradient rounded-xl">
+            <Plus className="w-4 h-4 mr-2" />Add Your First Task
+          </Button>
         </div>
       )}
     </div>

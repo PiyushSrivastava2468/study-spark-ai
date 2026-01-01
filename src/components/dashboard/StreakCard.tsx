@@ -1,12 +1,12 @@
 import { Flame, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAppData } from "@/contexts/AppDataContext";
 
 const weekDays = ["M", "T", "W", "T", "F", "S", "S"];
-const streakData = [true, true, true, true, true, false, false]; // Example: M-F active
 
 export function StreakCard() {
-  const currentStreak = 12;
-  const longestStreak = 28;
+  const { streak, getStreakData } = useAppData();
+  const streakData = getStreakData();
 
   return (
     <div className="stat-card relative overflow-hidden">
@@ -19,7 +19,7 @@ export function StreakCard() {
           </div>
           <div className="text-right">
             <p className="text-xs text-muted-foreground">Longest</p>
-            <p className="text-sm font-semibold text-foreground">{longestStreak} days</p>
+            <p className="text-sm font-semibold text-foreground">{streak.longest} days</p>
           </div>
         </div>
 
@@ -28,10 +28,10 @@ export function StreakCard() {
         </h3>
         <div className="flex items-baseline gap-2 mb-4">
           <span className="text-4xl font-display font-bold text-foreground">
-            {currentStreak}
+            {streak.current}
           </span>
           <span className="text-lg text-muted-foreground">days</span>
-          <TrendingUp className="w-4 h-4 text-emerald-500 ml-auto" />
+          {streak.current > 0 && <TrendingUp className="w-4 h-4 text-emerald-500 ml-auto" />}
         </div>
 
         {/* Week visualization */}
