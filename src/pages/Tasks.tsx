@@ -10,6 +10,7 @@ import {
   Trash2,
   Edit2,
   X,
+  CheckSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
