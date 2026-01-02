@@ -16,6 +16,7 @@ import {
   X,
   FileText,
   Clock,
+  Download,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -32,6 +33,7 @@ const navItems = [
   { icon: Target, label: "Goals", path: "/goals" },
   { icon: BarChart3, label: "Analytics", path: "/analytics" },
   { icon: Clock, label: "History", path: "/history" },
+  { icon: Download, label: "Install App", path: "/install" },
 ];
 
 export function Sidebar() {
