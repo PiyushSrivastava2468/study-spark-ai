@@ -55,39 +55,9 @@ export default function AIChat() {
 
     try {
       const { GoogleGenerativeAI } = await import("@google/generative-ai");
+      const { getAvailableModels } = await import("@/lib/gemini");
       const genAI = new GoogleGenerativeAI(apiKey);
-
-      // Auto-detect best available model
-      let modelName = "gemini-2.0-flash";
-      try {
-        const listResp = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`
-        );
-        const listData = await listResp.json();
-        if (listResp.ok && listData.models) {
-          const names = listData.models.map((m: any) => m.name);
-          const priorities = [
-            "gemini-2.0-flash",
-            "gemini-2.0-flash-lite",
-            "gemini-1.5-flash",
-            "gemini-1.5-flash-001",
-            "gemini-1.5-flash-8b",
-            "gemini-1.5-pro",
-            "gemini-pro",
-          ];
-          for (const p of priorities) {
-            const found = names.find((n: string) => n.endsWith(p));
-            if (found) {
-              modelName = found.replace("models/", "");
-              break;
-            }
-          }
-        }
-      } catch {
-        // Use default
-      }
-
-      const model = genAI.getGenerativeModel({ model: modelName });
+      const models = await getAvailableModels(apiKey);
 
       // Build conversation history for context
       const history = messages.map((m) => ({
@@ -95,33 +65,69 @@ export default function AIChat() {
         parts: [{ text: m.content }],
       }));
 
-      const chat = model.startChat({
-        history,
-        generationConfig: { maxOutputTokens: 2048 },
-      });
+      let lastError: any = null;
 
-      const result = await chat.sendMessage(trimmed);
-      const response = await result.response;
-      const text = response.text();
+      // Try each model until one works
+      for (const modelName of models) {
+        try {
+          console.log(`AI Chat trying model: ${modelName}`);
+          const model = genAI.getGenerativeModel({ model: modelName });
+          const chat = model.startChat({
+            history,
+            generationConfig: { maxOutputTokens: 2048 },
+          });
 
-      const assistantMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: text,
-        timestamp: new Date(),
-      };
+          const result = await chat.sendMessage(trimmed);
+          const response = await result.response;
+          const text = response.text();
 
-      setMessages((prev) => [...prev, assistantMessage]);
+          const assistantMessage: ChatMessage = {
+            id: (Date.now() + 1).toString(),
+            role: "assistant",
+            content: text,
+            timestamp: new Date(),
+          };
+
+          setMessages((prev) => [...prev, assistantMessage]);
+          return; // Success — exit
+        } catch (err: any) {
+          lastError = err;
+          const msg = String(err?.message || "").toLowerCase();
+          if (msg.includes("429") || msg.includes("quota") || msg.includes("rate") || msg.includes("limit") || msg.includes("resource exhausted")) {
+            console.warn(`${modelName} rate-limited, trying next...`);
+            continue;
+          }
+          if (msg.includes("404") || msg.includes("not found")) {
+            continue;
+          }
+          throw err; // Non-rate-limit error, don't retry
+        }
+      }
+
+      // All models failed
+      throw new Error(
+        "⏳ All AI models have reached their free tier quota. This resets automatically. " +
+        "Wait a few minutes and try again, or get a new API key from https://aistudio.google.com/app/apikey"
+      );
     } catch (error: any) {
       console.error("Chat error:", error);
+      const errText = error.message || "Failed to generate response";
+      const isQuota = errText.toLowerCase().includes("quota") || errText.includes("⏳");
+
       const errorMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: `Sorry, I encountered an error: ${error.message || "Failed to generate response"}. Please check your API key and try again.`,
+        content: isQuota
+          ? "⏳ **Rate limit reached.** All available AI models have hit their free tier quota.\n\n" +
+            "**What you can do:**\n" +
+            "- Wait a few minutes and try again\n" +
+            "- Get a new free API key from [Google AI Studio](https://aistudio.google.com/app/apikey)\n" +
+            "- Set the new key in **Settings** or **AI Hub**"
+          : `Sorry, I encountered an error: ${errText}`,
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMessage]);
-      toast.error("Failed to get AI response");
+      if (!isQuota) toast.error("Failed to get AI response");
     } finally {
       setIsLoading(false);
     }

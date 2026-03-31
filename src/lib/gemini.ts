@@ -28,46 +28,131 @@ const PROMPTS: Record<AIFeatureId, (text: string, difficulty: string) => string>
     `Create a high-yield "Cheat Sheet" for last-minute revision. Focus ONLY on: 1) Key Definitions, 2) Important Formulas/Dates, 3) Crucial Facts. Do NOT write full sentences or paragraphs. Use short bullet points or tables. Target level: ${difficulty}. Do NOT use JSON.\n\nMaterial:\n${text}`,
 };
 
-const getBestModel = async (apiKey: string): Promise<string> => {
+// Model priority list — tries each in order, skipping rate-limited ones
+const MODEL_PRIORITIES = [
+  "gemini-2.0-flash",
+  "gemini-2.0-flash-lite",
+  "gemini-1.5-flash",
+  "gemini-1.5-flash-001",
+  "gemini-1.5-flash-8b",
+  "gemini-1.5-pro",
+  "gemini-1.5-pro-001",
+  "gemini-1.0-pro",
+  "gemini-pro",
+];
+
+const getAvailableModels = async (apiKey: string): Promise<string[]> => {
   try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`
+    );
     const data = await response.json();
     if (!response.ok) throw new Error("Failed to list models");
 
     const models = data.models || [];
-    console.log("All Available Gemini Models:", models.map((m: any) => m.name)); // Debug log for user
+    const modelNames = models.map((m: any) => m.name.replace("models/", ""));
 
-    // Priority List for Free Tier
-    const priorities = [
-      "gemini-2.0-flash",
-      "gemini-2.0-flash-lite",
-      "gemini-1.5-flash",
-      "gemini-1.5-flash-001",
-      "gemini-1.5-flash-8b",
-      "gemini-1.5-pro",
-      "gemini-1.5-pro-001",
-      "gemini-1.0-pro",
-      "gemini-pro"
-    ];
-
-    for (const priority of priorities) {
-      const found = models.find((m: any) => m.name.endsWith(priority));
-      if (found) return found.name.replace("models/", "");
+    // Return models in priority order
+    const ordered: string[] = [];
+    for (const priority of MODEL_PRIORITIES) {
+      const found = modelNames.find((n: string) => n === priority || n.endsWith(priority));
+      if (found) ordered.push(found);
     }
 
-    // Fallback: any flash model
-    const anyFlash = models.find((m: any) => m.name.includes("flash"));
-    if (anyFlash) return anyFlash.name.replace("models/", "");
+    // Add any remaining flash/gemini models not in priority list
+    for (const name of modelNames) {
+      if (!ordered.includes(name) && name.includes("gemini")) {
+        ordered.push(name);
+      }
+    }
 
-    // Fallback: any gemini model (avoiding 2.5 if possible based on this error, but if it's the only one...)
-    const anyGemini = models.find((m: any) => m.name.includes("gemini") && !m.name.includes("2.5"));
-    if (anyGemini) return anyGemini.name.replace("models/", "");
-
-    return "gemini-2.0-flash"; // Ultimate fallback
-  } catch (e) {
-    console.warn("Could not auto-detect model, using default");
-    return "gemini-2.0-flash";
+    return ordered.length > 0 ? ordered : ["gemini-2.0-flash"];
+  } catch {
+    return ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash"];
   }
+};
+
+const isRateLimitError = (error: any): boolean => {
+  const msg = String(error?.message || error || "").toLowerCase();
+  return (
+    msg.includes("429") ||
+    msg.includes("quota") ||
+    msg.includes("rate") ||
+    msg.includes("resource exhausted") ||
+    msg.includes("limit")
+  );
+};
+
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Try generating content, automatically falling back through available models
+ * if rate-limited. Also retries once after a short delay for transient errors.
+ */
+const generateWithFallback = async (
+  apiKey: string,
+  prompt: string
+): Promise<string> => {
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const models = await getAvailableModels(apiKey);
+  console.log("Available models (in priority order):", models);
+
+  const errors: string[] = [];
+
+  for (const modelName of models) {
+    try {
+      console.log(`Trying model: ${modelName}`);
+      const model = genAI.getGenerativeModel({ model: modelName });
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      console.log(`✓ Success with model: ${modelName}`);
+      return response.text();
+    } catch (error: any) {
+      const errMsg = error?.message || String(error);
+      console.warn(`✗ ${modelName} failed:`, errMsg.substring(0, 100));
+
+      if (isRateLimitError(error)) {
+        errors.push(`${modelName}: rate limited`);
+        // Try next model immediately
+        continue;
+      }
+
+      if (errMsg.includes("404") || errMsg.includes("not found")) {
+        errors.push(`${modelName}: not available`);
+        continue;
+      }
+
+      // For other errors, retry once after a brief delay
+      try {
+        console.log(`Retrying ${modelName} after 2s delay...`);
+        await delay(2000);
+        const model = genAI.getGenerativeModel({ model: modelName });
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        return response.text();
+      } catch (retryError: any) {
+        errors.push(`${modelName}: ${retryError?.message?.substring(0, 80) || "unknown error"}`);
+        continue;
+      }
+    }
+  }
+
+  // All models failed
+  const allRateLimited = errors.every((e) => e.includes("rate limited"));
+  if (allRateLimited) {
+    throw new Error(
+      "⏳ All AI models have reached their free tier quota limit. " +
+      "This resets automatically (usually within an hour or by tomorrow). " +
+      "You can either:\n" +
+      "• Wait a few minutes and try again\n" +
+      "• Get a new API key from https://aistudio.google.com/app/apikey\n" +
+      "• Upgrade to a paid Gemini plan for higher limits"
+    );
+  }
+
+  throw new Error(
+    `AI generation failed with all available models. Errors:\n${errors.join("\n")}`
+  );
 };
 
 export const generateStudyContent = async (
@@ -76,28 +161,20 @@ export const generateStudyContent = async (
   content: string,
   difficulty: string
 ) => {
-  try {
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const modelName = await getBestModel(apiKey);
-    console.log("Using model:", modelName);
-    const model = genAI.getGenerativeModel({ model: modelName });
-
-    const promptGenerator = PROMPTS[featureId as AIFeatureId];
-    if (!promptGenerator) {
-      throw new Error("Invalid feature selected");
-    }
-
-    const prompt = promptGenerator(content, difficulty);
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    return response.text();
-  } catch (error) {
-    console.error("AI Generation Error:", error);
-    throw error;
+  const promptGenerator = PROMPTS[featureId as AIFeatureId];
+  if (!promptGenerator) {
+    throw new Error("Invalid feature selected");
   }
+
+  const prompt = promptGenerator(content, difficulty);
+  return generateWithFallback(apiKey, prompt);
 };
+
+// Exported for use by AIChat.tsx
+export { generateWithFallback, getAvailableModels };
 
 // Deprecated but kept for compatibility with UI check
 export const validateGeminiConnection = async (apiKey: string) => {
-  return getBestModel(apiKey).then(name => [name]);
+  const models = await getAvailableModels(apiKey);
+  return models.slice(0, 1);
 };
