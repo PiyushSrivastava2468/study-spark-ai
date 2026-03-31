@@ -78,9 +78,9 @@ export const generateStudyContent = async (
 ) => {
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
-    // Initial attempt with 1.5-flash
-    let modelName = "gemini-1.5-flash";
-    let model = genAI.getGenerativeModel({ model: modelName });
+    const modelName = await getBestModel(apiKey);
+    console.log("Using model:", modelName);
+    const model = genAI.getGenerativeModel({ model: modelName });
 
     const promptGenerator = PROMPTS[featureId as AIFeatureId];
     if (!promptGenerator) {
@@ -88,27 +88,9 @@ export const generateStudyContent = async (
     }
 
     const prompt = promptGenerator(content, difficulty);
-
-    try {
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      return response.text();
-    } catch (firstError: any) {
-      // If 404, try to find a valid model and retry
-      if (firstError.message.includes("404") || firstError.message.includes("not found")) {
-        console.log("Default model failed, attempting to auto-detect best available model...");
-        const bestModel = await getBestModel(apiKey);
-        console.log("Retrying with model:", bestModel);
-
-        if (bestModel !== modelName) {
-          model = genAI.getGenerativeModel({ model: bestModel });
-          const result = await model.generateContent(prompt);
-          const response = await result.response;
-          return response.text();
-        }
-      }
-      throw firstError;
-    }
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    return response.text();
   } catch (error) {
     console.error("AI Generation Error:", error);
     throw error;
