@@ -39,6 +39,8 @@ const getBestModel = async (apiKey: string): Promise<string> => {
 
     // Priority List for Free Tier
     const priorities = [
+      "gemini-2.0-flash",
+      "gemini-2.0-flash-lite",
       "gemini-1.5-flash",
       "gemini-1.5-flash-001",
       "gemini-1.5-flash-8b",
@@ -61,10 +63,10 @@ const getBestModel = async (apiKey: string): Promise<string> => {
     const anyGemini = models.find((m: any) => m.name.includes("gemini") && !m.name.includes("2.5"));
     if (anyGemini) return anyGemini.name.replace("models/", "");
 
-    return "gemini-1.5-flash"; // Ultimate fallback
+    return "gemini-2.0-flash"; // Ultimate fallback
   } catch (e) {
     console.warn("Could not auto-detect model, using default");
-    return "gemini-1.5-flash";
+    return "gemini-2.0-flash";
   }
 };
 

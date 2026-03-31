@@ -24,6 +24,7 @@ import History from "@/pages/History";
 import AIChat from "@/pages/AIChat";
 import Tutorials from "@/pages/Tutorials";
 import Features from "@/pages/Features";
+import Lectures from "@/pages/Lectures";
 import NotFound from "@/pages/NotFound";
 import Login from "@/pages/Login";
 
@@ -71,6 +72,7 @@ const App = () => (
                           <Route path="/ai-chat" element={<AIChat />} />
                           <Route path="/tutorials" element={<Tutorials />} />
                           <Route path="/features" element={<Features />} />
+                          <Route path="/lectures" element={<Lectures />} />
                           <Route path="*" element={<NotFound />} />
                         </Routes>
                       </Layout>

@@ -56,7 +56,38 @@ export default function AIChat() {
     try {
       const { GoogleGenerativeAI } = await import("@google/generative-ai");
       const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+      // Auto-detect best available model
+      let modelName = "gemini-2.0-flash";
+      try {
+        const listResp = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`
+        );
+        const listData = await listResp.json();
+        if (listResp.ok && listData.models) {
+          const names = listData.models.map((m: any) => m.name);
+          const priorities = [
+            "gemini-2.0-flash",
+            "gemini-2.0-flash-lite",
+            "gemini-1.5-flash",
+            "gemini-1.5-flash-001",
+            "gemini-1.5-flash-8b",
+            "gemini-1.5-pro",
+            "gemini-pro",
+          ];
+          for (const p of priorities) {
+            const found = names.find((n: string) => n.endsWith(p));
+            if (found) {
+              modelName = found.replace("models/", "");
+              break;
+            }
+          }
+        }
+      } catch {
+        // Use default
+      }
+
+      const model = genAI.getGenerativeModel({ model: modelName });
 
       // Build conversation history for context
       const history = messages.map((m) => ({
