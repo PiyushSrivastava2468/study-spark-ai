@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, Trash2, GraduationCap, TrendingUp, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 interface Course {
   id: string;
@@ -35,29 +38,114 @@ const gradePoints: Record<string, number> = {
 
 const grades = Object.keys(gradePoints);
 
+const STORAGE_KEY_TARGET = "focusflow-gpa-target";
+
 export default function GPA() {
-  const [courses, setCourses] = useState<Course[]>([
-    { id: "1", name: "Calculus II", credits: 4, grade: "A" },
-    { id: "2", name: "Physics I", credits: 3, grade: "B+" },
-    { id: "3", name: "Computer Science 101", credits: 3, grade: "A-" },
-  ]);
-  const [targetGPA, setTargetGPA] = useState("3.5");
+  const { user } = useAuth();
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const addCourse = () => {
-    setCourses([
-      ...courses,
-      { id: Date.now().toString(), name: "", credits: 3, grade: "A" },
-    ]);
+  const [targetGPA, setTargetGPA] = useState<string>(() => {
+    return localStorage.getItem(STORAGE_KEY_TARGET) || "3.5";
+  });
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_TARGET, targetGPA);
+  }, [targetGPA]);
+
+  useEffect(() => {
+    if (!user) {
+      setCourses([]);
+      return;
+    }
+    fetchCourses();
+  }, [user]);
+
+  const fetchCourses = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("courses")
+        .select("*")
+        .order("created_at", { ascending: true });
+
+      if (error) throw error;
+
+      if (data) {
+        setCourses(data.map((c: any) => ({
+          id: c.id,
+          name: c.name,
+          credits: c.credits,
+          grade: c.grade,
+        })));
+      }
+    } catch (error: any) {
+      console.error("Error fetching courses:", error);
+      toast.error("Failed to load courses");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const removeCourse = (id: string) => {
-    setCourses(courses.filter((c) => c.id !== id));
+  const addCourse = async () => {
+    try {
+      if (!user) return;
+      const newCourseData = {
+        user_id: user.id,
+        name: "",
+        credits: 3,
+        grade: "A",
+      };
+
+      const { data, error } = await supabase
+        .from("courses")
+        .insert(newCourseData)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setCourses([...courses, { id: data.id, name: data.name, credits: data.credits, grade: data.grade }]);
+    } catch (error: any) {
+      console.error("Error adding course:", error);
+      toast.error("Failed to add course");
+    }
   };
 
-  const updateCourse = (id: string, field: keyof Course, value: string | number) => {
-    setCourses(
-      courses.map((c) => (c.id === id ? { ...c, [field]: value } : c))
-    );
+  const removeCourse = async (id: string) => {
+    try {
+      setCourses(courses.filter((c) => c.id !== id));
+      const { error } = await supabase.from("courses").delete().eq("id", id);
+      if (error) throw error;
+    } catch (error: any) {
+      console.error("Error deleting course:", error);
+      toast.error("Failed to delete course");
+      fetchCourses();
+    }
+  };
+
+  const updateCourse = async (id: string, field: keyof Course, value: string | number) => {
+    try {
+      setCourses(
+        courses.map((c) => (c.id === id ? { ...c, [field]: value } : c))
+      );
+
+      // Debounce or just fire update? For simplicity, fire update.
+      // Be careful with frequent text inputs.
+      // Ideally we debounce 'name' updates, but for 'grade'/'credits' select/number inputs it's okay-ish.
+      // For name, maybe only update on blur? But we need to update state immediately for UI.
+      // Let's implement full update for now.
+
+      const { error } = await supabase
+        .from("courses")
+        .update({ [field]: value })
+        .eq("id", id);
+
+      if (error) throw error;
+    } catch (error: any) {
+      console.error("Error updating course:", error);
+      // failing silently to avoid spamming the user on input
+    }
   };
 
   const calculateGPA = () => {
@@ -73,7 +161,7 @@ export default function GPA() {
   const totalCredits = courses.reduce((sum, course) => sum + course.credits, 0);
   const gpa = calculateGPA();
   const gpaNum = parseFloat(String(gpa));
-  const targetNum = parseFloat(targetGPA);
+  const targetNum = parseFloat(targetGPA) || 0;
   const gpaProgress = (gpaNum / 4.0) * 100;
 
   return (
@@ -90,7 +178,7 @@ export default function GPA() {
 
       {/* Stats Cards */}
       <div className="grid md:grid-cols-3 gap-5 mb-8">
-        <div className="stat-card relative overflow-hidden animate-fade-in stagger-1 opacity-0">
+        <div className="stat-card relative overflow-hidden animate-fade-in stagger-1">
           <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-primary/5" />
           <div className="relative z-10">
             <div className="flex items-start justify-between mb-4">
@@ -111,7 +199,7 @@ export default function GPA() {
           </div>
         </div>
 
-        <div className="stat-card relative overflow-hidden animate-fade-in stagger-2 opacity-0">
+        <div className="stat-card relative overflow-hidden animate-fade-in stagger-2">
           <div className="absolute inset-0 bg-gradient-to-br from-accent/10 to-accent/5" />
           <div className="relative z-10">
             <div className="flex items-start justify-between mb-4">
@@ -131,19 +219,24 @@ export default function GPA() {
               max="4"
               className="text-3xl font-display font-bold h-auto p-0 border-0 bg-transparent focus-visible:ring-0"
             />
-            <p className="text-sm text-muted-foreground mt-2">
-              {gpaNum >= targetNum ? (
-                <span className="text-emerald-500">On track! ✓</span>
-              ) : (
-                <span className="text-destructive">
-                  {(targetNum - gpaNum).toFixed(2)} points to go
-                </span>
-              )}
-            </p>
+            {courses.length > 0 && (
+              <p className="text-sm text-muted-foreground mt-2">
+                {gpaNum >= targetNum ? (
+                  <span className="text-emerald-500">On track! ✓</span>
+                ) : (
+                  <span className="text-destructive">
+                    {(targetNum - gpaNum).toFixed(2)} points to go
+                  </span>
+                )}
+              </p>
+            )}
+            {courses.length === 0 && (
+              <p className="text-sm text-muted-foreground mt-2">Add courses to see progress</p>
+            )}
           </div>
         </div>
 
-        <div className="stat-card relative overflow-hidden animate-fade-in stagger-3 opacity-0">
+        <div className="stat-card relative overflow-hidden animate-fade-in stagger-3">
           <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-emerald-500/5" />
           <div className="relative z-10">
             <div className="flex items-start justify-between mb-4">
@@ -165,7 +258,7 @@ export default function GPA() {
       </div>
 
       {/* Courses Table */}
-      <div className="glass-card rounded-2xl p-6 animate-fade-in stagger-4 opacity-0">
+      <div className="glass-card rounded-2xl p-6 animate-fade-in stagger-4">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-semibold text-foreground">Courses</h3>
           <Button onClick={addCourse} variant="outline" className="rounded-xl">
@@ -177,10 +270,10 @@ export default function GPA() {
         <div className="space-y-3">
           {/* Header */}
           <div className="grid grid-cols-12 gap-4 px-4 py-2 text-sm font-medium text-muted-foreground">
-            <div className="col-span-5">Course Name</div>
-            <div className="col-span-2 text-center">Credits</div>
-            <div className="col-span-3 text-center">Grade</div>
-            <div className="col-span-2 text-center">Points</div>
+            <div className="col-span-12 md:col-span-5">Course Name</div>
+            <div className="col-span-4 md:col-span-2 text-center">Credits</div>
+            <div className="col-span-5 md:col-span-3 text-center">Grade</div>
+            <div className="hidden md:block md:col-span-2 text-center">Points</div>
           </div>
 
           {/* Courses */}
@@ -188,11 +281,11 @@ export default function GPA() {
             <div
               key={course.id}
               className={cn(
-                "grid grid-cols-12 gap-4 items-center p-4 rounded-xl bg-secondary/50 group animate-fade-in opacity-0"
+                "grid grid-cols-12 gap-4 items-center p-4 rounded-xl bg-secondary/50 group animate-fade-in"
               )}
-              style={{ animationDelay: `${(index + 5) * 50}ms` }}
+              style={{ animationDelay: `${index * 50}ms` }}
             >
-              <div className="col-span-5">
+              <div className="col-span-12 md:col-span-5">
                 <Input
                   value={course.name}
                   onChange={(e) => updateCourse(course.id, "name", e.target.value)}
@@ -200,7 +293,7 @@ export default function GPA() {
                   className="bg-background input-focus"
                 />
               </div>
-              <div className="col-span-2">
+              <div className="col-span-4 md:col-span-2">
                 <Input
                   type="number"
                   value={course.credits}
@@ -213,7 +306,7 @@ export default function GPA() {
                   className="bg-background text-center input-focus"
                 />
               </div>
-              <div className="col-span-3">
+              <div className="col-span-5 md:col-span-3">
                 <Select
                   value={course.grade}
                   onValueChange={(value) => updateCourse(course.id, "grade", value)}
@@ -230,15 +323,15 @@ export default function GPA() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="col-span-2 flex items-center justify-between">
-                <span className="font-semibold text-foreground">
+              <div className="col-span-3 md:col-span-2 flex items-center justify-between">
+                <span className="hidden md:inline font-semibold text-foreground">
                   {(gradePoints[course.grade] * course.credits).toFixed(1)}
                 </span>
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => removeCourse(course.id)}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8 text-destructive hover:text-destructive"
+                  className="opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity h-8 w-8 text-destructive hover:text-destructive"
                 >
                   <Trash2 className="w-4 h-4" />
                 </Button>

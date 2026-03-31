@@ -38,8 +38,8 @@ export default function History() {
   const { activities, clearHistory } = useAppData();
   const [filter, setFilter] = useState<string>("all");
 
-  const filteredActivities = filter === "all" 
-    ? activities 
+  const filteredActivities = filter === "all"
+    ? activities
     : activities.filter((a) => a.type === filter);
 
   const formatTime = (date: Date) => {
@@ -57,7 +57,7 @@ export default function History() {
   };
 
   return (
-    <div className="p-4 sm:p-8 max-w-4xl mx-auto">
+    <div className="p-4 sm:p-8 max-w-4xl mx-auto pb-20">
       <div className="flex items-center justify-between mb-8 animate-fade-in">
         <div>
           <h1 className="text-3xl font-display font-bold text-foreground mb-2">

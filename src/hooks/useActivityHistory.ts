@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 
 export type ActivityType = "task" | "goal" | "focus" | "note" | "planner";
 export type ActivityAction = "created" | "updated" | "deleted" | "completed";
@@ -12,33 +13,51 @@ export interface Activity {
   timestamp: Date;
 }
 
-const STORAGE_KEY = "focusflow-activity-history";
 const MAX_ACTIVITIES = 100;
 
 export function useActivityHistory() {
-  const [activities, setActivities] = useState<Activity[]>(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      return parsed.map((a: any) => ({
-        ...a,
-        timestamp: new Date(a.timestamp),
-      }));
-    }
-    return [];
-  });
+  const [activities, setActivities] = useState<Activity[]>([]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(activities));
-  }, [activities]);
+    fetchActivities();
+  }, []);
 
-  const addActivity = (
+  const fetchActivities = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return; // Or handle local storage fallback if needed, but we're going full Supabase
+
+      const { data, error } = await supabase
+        .from("activity_logs")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(MAX_ACTIVITIES);
+
+      if (error) throw error;
+
+      if (data) {
+        setActivities(data.map(item => ({
+          id: item.id,
+          type: item.type,
+          action: item.action,
+          title: item.title,
+          description: item.description,
+          timestamp: new Date(item.created_at) // Map created_at to timestamp
+        })));
+      }
+    } catch (err) {
+      console.error("Error fetching activity history:", err);
+    }
+  };
+
+  const addActivity = async (
     type: ActivityType,
     action: ActivityAction,
     title: string,
     description?: string
   ) => {
-    const newActivity: Activity = {
+    const newActivityLocal: Activity = {
       id: crypto.randomUUID(),
       type,
       action,
@@ -46,12 +65,49 @@ export function useActivityHistory() {
       description,
       timestamp: new Date(),
     };
-    setActivities((prev) => [newActivity, ...prev].slice(0, MAX_ACTIVITIES));
-    return newActivity;
+
+    // Optimistic update
+    setActivities((prev) => [newActivityLocal, ...prev].slice(0, MAX_ACTIVITIES));
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return newActivityLocal;
+
+      const { error } = await supabase
+        .from("activity_logs")
+        .insert([{
+          user_id: user.id,
+          type,
+          action,
+          title,
+          description,
+          created_at: new Date().toISOString()
+        }]);
+
+      if (error) throw error;
+    } catch (err) {
+      console.error("Error logging activity:", err);
+      // Revert optimistic update if critical, but for logging it's usually fine to just log error
+    }
+
+    return newActivityLocal;
   };
 
-  const clearHistory = () => {
-    setActivities([]);
+  const clearHistory = async () => {
+    setActivities([]); // Optimistic clear
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { error } = await supabase
+        .from("activity_logs")
+        .delete()
+        .eq("user_id", user.id);
+
+      if (error) throw error;
+    } catch (err) {
+      console.error("Error clearing history:", err);
+    }
   };
 
   const getRecentActivities = (limit: number = 20) => {

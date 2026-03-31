@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Study Spark AI</string>
+    <string name="title_activity_main">Study Spark AI</string>
+    <string name="package_name">com.studyspark.app</string>
+    <string name="custom_url_scheme">com.studyspark.app</string>
+</resources>

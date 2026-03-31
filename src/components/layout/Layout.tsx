@@ -15,8 +15,8 @@ export function Layout({ children }: LayoutProps) {
       <main
         className={
           isMobile
-            ? "pt-16 min-h-screen"
-            : "ml-64 min-h-screen"
+            ? "pt-16 min-h-screen w-full overflow-x-hidden"
+            : "ml-64 min-h-screen w-[calc(100%-16rem)] overflow-x-hidden"
         }
       >
         {children}

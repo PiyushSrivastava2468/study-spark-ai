@@ -16,7 +16,9 @@ import {
   X,
   FileText,
   Clock,
-  Download,
+  MessageCircle,
+  BookOpen,
+  Star,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -30,10 +32,12 @@ const navItems = [
   { icon: Calendar, label: "Planner", path: "/planner" },
   { icon: GraduationCap, label: "GPA", path: "/gpa" },
   { icon: Brain, label: "AI Study Hub", path: "/ai-hub", highlight: true },
+  { icon: MessageCircle, label: "AI Chat", path: "/ai-chat", highlight: true },
   { icon: Target, label: "Goals", path: "/goals" },
   { icon: BarChart3, label: "Analytics", path: "/analytics" },
   { icon: Clock, label: "History", path: "/history" },
-  { icon: Download, label: "Install App", path: "/install" },
+  { icon: BookOpen, label: "Tutorials", path: "/tutorials" },
+  { icon: Star, label: "Features", path: "/features" },
 ];
 
 export function Sidebar() {
@@ -54,7 +58,7 @@ export function Sidebar() {
               <Sparkles className="w-4 h-4 text-primary-foreground" />
             </div>
             <span className="font-display font-bold text-lg text-foreground">
-              FocusFlow
+              Study Spark AI
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -83,13 +87,13 @@ export function Sidebar() {
           "fixed top-0 h-screen bg-sidebar border-r border-sidebar-border flex flex-col transition-all duration-300 z-50",
           isMobile
             ? cn(
-                "left-0 w-72 top-16 h-[calc(100vh-4rem)]",
-                mobileOpen ? "translate-x-0" : "-translate-x-full"
-              )
+              "left-0 w-72 top-16 h-[calc(100vh-4rem)]",
+              mobileOpen ? "translate-x-0" : "-translate-x-full"
+            )
             : cn(
-                "left-0",
-                collapsed ? "w-20" : "w-64"
-              )
+              "left-0",
+              collapsed ? "w-20" : "w-64"
+            )
         )}
       >
         {/* Logo - Desktop only */}
@@ -100,7 +104,7 @@ export function Sidebar() {
             </div>
             {!collapsed && (
               <span className="font-display font-bold text-xl text-foreground">
-                FocusFlow
+                Study Spark AI
               </span>
             )}
           </div>

@@ -1,4 +1,7 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 export interface Note {
   id: string;
@@ -12,57 +15,126 @@ export interface Note {
 const defaultCategories = ["General", "Math", "Science", "History", "English", "Computer Science"];
 
 export function useNotes() {
-  const [notes, setNotes] = useState<Note[]>(() => {
-    const stored = localStorage.getItem("focusflow-notes");
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      return parsed.map((n: any) => ({
-        ...n,
-        createdAt: new Date(n.createdAt),
-        updatedAt: new Date(n.updatedAt),
-      }));
+  const { user } = useAuth();
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [categories, setCategories] = useState<string[]>(defaultCategories);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) {
+      setNotes([]);
+      return;
     }
-    return [];
-  });
+    fetchNotes();
+  }, [user]);
 
-  const [categories, setCategories] = useState<string[]>(() => {
-    const stored = localStorage.getItem("focusflow-note-categories");
-    return stored ? JSON.parse(stored) : defaultCategories;
-  });
+  const fetchNotes = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("notes")
+        .select("*")
+        .order("created_at", { ascending: false });
 
-  useEffect(() => {
-    localStorage.setItem("focusflow-notes", JSON.stringify(notes));
-  }, [notes]);
+      if (error) throw error;
 
-  useEffect(() => {
-    localStorage.setItem("focusflow-note-categories", JSON.stringify(categories));
-  }, [categories]);
+      if (data) {
+        setNotes(data.map((n: any) => ({
+          id: n.id,
+          title: n.title,
+          content: n.content,
+          category: n.category,
+          createdAt: new Date(n.created_at),
+          updatedAt: new Date(n.updated_at),
+        })));
 
-  const createNote = (title: string, content: string, category: string): Note => {
-    const newNote: Note = {
-      id: crypto.randomUUID(),
-      title,
-      content,
-      category,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    setNotes((prev) => [newNote, ...prev]);
-    return newNote;
+        // Extract unique categories from notes and merge with defaults
+        const noteCategories = new Set(data.map((n: any) => n.category));
+        const mergedCategories = Array.from(new Set([...defaultCategories, ...Array.from(noteCategories)]));
+        setCategories(mergedCategories);
+      }
+    } catch (error: any) {
+      console.error("Error fetching notes:", error);
+      toast.error("Failed to load notes");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const updateNote = (id: string, updates: Partial<Omit<Note, "id" | "createdAt">>) => {
-    setNotes((prev) =>
-      prev.map((note) =>
-        note.id === id
-          ? { ...note, ...updates, updatedAt: new Date() }
-          : note
-      )
-    );
+  const createNote = async (title: string, content: string, category: string): Promise<Note | undefined> => {
+    try {
+      if (!user) return;
+
+      const newNoteData = {
+        user_id: user.id,
+        title,
+        content,
+        category,
+      };
+
+      const { data, error } = await supabase
+        .from("notes")
+        .insert(newNoteData)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const newNote: Note = {
+        id: data.id,
+        title: data.title,
+        content: data.content,
+        category: data.category,
+        createdAt: new Date(data.created_at),
+        updatedAt: new Date(data.updated_at),
+      };
+
+      setNotes((prev) => [newNote, ...prev]);
+      return newNote;
+    } catch (error: any) {
+      console.error("Error creating note:", error);
+      toast.error("Failed to create note");
+    }
   };
 
-  const deleteNote = (id: string) => {
-    setNotes((prev) => prev.filter((note) => note.id !== id));
+  const updateNote = async (id: string, updates: Partial<Omit<Note, "id" | "createdAt">>) => {
+    try {
+      setNotes((prev) =>
+        prev.map((note) =>
+          note.id === id ? { ...note, ...updates, updatedAt: new Date() } : note
+        )
+      );
+
+      const apiUpdates: any = {
+        updated_at: new Date().toISOString(),
+      };
+      if (updates.title) apiUpdates.title = updates.title;
+      if (updates.content) apiUpdates.content = updates.content;
+      if (updates.category) apiUpdates.category = updates.category;
+
+      const { error } = await supabase
+        .from("notes")
+        .update(apiUpdates)
+        .eq("id", id);
+
+      if (error) throw error;
+    } catch (error: any) {
+      console.error("Error updating note:", error);
+      toast.error("Failed to update note");
+      fetchNotes();
+    }
+  };
+
+  const deleteNote = async (id: string) => {
+    try {
+      setNotes((prev) => prev.filter((note) => note.id !== id));
+      const { error } = await supabase.from("notes").delete().eq("id", id);
+      if (error) throw error;
+    } catch (error: any) {
+      console.error("Error deleting note:", error);
+      toast.error("Failed to delete note");
+      fetchNotes();
+    }
   };
 
   const addCategory = (category: string) => {
@@ -84,6 +156,7 @@ export function useNotes() {
   return {
     notes,
     categories,
+    loading,
     createNote,
     updateNote,
     deleteNote,

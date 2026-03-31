@@ -1,4 +1,7 @@
 import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 export interface FocusSession {
   id: string;
@@ -14,64 +17,108 @@ export interface DailyStats {
   sessions: number;
 }
 
-const STORAGE_KEY = "focusflow-focus-sessions";
-const STREAK_KEY = "focusflow-streak";
-
 export function useFocusSessions() {
-  const [sessions, setSessions] = useState<FocusSession[]>(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      return parsed.map((s: any) => ({
-        ...s,
-        completedAt: new Date(s.completedAt),
-      }));
-    }
-    return [];
-  });
+  const { user } = useAuth();
+  const [sessions, setSessions] = useState<FocusSession[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const [streak, setStreak] = useState<{ current: number; longest: number }>(() => {
-    const stored = localStorage.getItem(STREAK_KEY);
-    return stored ? JSON.parse(stored) : { current: 0, longest: 0 };
-  });
+  // Streak can be derived from sessions or stored separately. 
+  // For simplicity, we'll derive it on load.
+  const [streak, setStreak] = useState<{ current: number; longest: number }>({ current: 0, longest: 0 });
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+    if (!user) {
+      setSessions([]);
+      return;
+    }
+    fetchSessions();
+  }, [user]);
+
+  useEffect(() => {
+    // Calculate streak whenever sessions change
     updateStreak();
   }, [sessions]);
 
-  useEffect(() => {
-    localStorage.setItem(STREAK_KEY, JSON.stringify(streak));
-  }, [streak]);
+  const fetchSessions = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("focus_sessions")
+        .select("*")
+        .order("completed_at", { ascending: false });
 
-  const addSession = (type: FocusSession["type"], duration: number) => {
-    const today = new Date().toISOString().split("T")[0];
-    const newSession: FocusSession = {
-      id: crypto.randomUUID(),
-      type,
-      duration,
-      completedAt: new Date(),
-      date: today,
-    };
-    setSessions((prev) => [newSession, ...prev]);
-    return newSession;
+      if (error) throw error;
+
+      if (data) {
+        setSessions(data.map((s: any) => ({
+          id: s.id,
+          type: s.type,
+          duration: s.duration,
+          completedAt: new Date(s.completed_at),
+          date: s.date,
+        })));
+      }
+    } catch (error: any) {
+      console.error("Error fetching sessions:", error);
+      toast.error("Failed to load focus sessions");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const addSession = async (type: FocusSession["type"], duration: number) => {
+    try {
+      if (!user) return;
+
+      const today = new Date().toISOString().split("T")[0];
+      const newSessionData = {
+        user_id: user.id,
+        type,
+        duration,
+        date: today,
+        completed_at: new Date().toISOString(),
+      };
+
+      const { data, error } = await supabase
+        .from("focus_sessions")
+        .insert(newSessionData)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const newSession: FocusSession = {
+        id: data.id,
+        type: data.type,
+        duration: data.duration,
+        completedAt: new Date(data.completed_at),
+        date: data.date,
+      };
+
+      setSessions((prev) => [newSession, ...prev]);
+      return newSession;
+    } catch (error: any) {
+      console.error("Error adding session:", error);
+      toast.error("Failed to save session");
+    }
   };
 
   const updateStreak = () => {
     const today = new Date();
     const dates = new Set(sessions.map((s) => s.date));
-    
+
     let currentStreak = 0;
     let checkDate = new Date(today);
-    
+
+    // Check backwards from today
     while (dates.has(checkDate.toISOString().split("T")[0])) {
       currentStreak++;
       checkDate.setDate(checkDate.getDate() - 1);
     }
 
-    setStreak((prev) => ({
+    setStreak(prev => ({
       current: currentStreak,
-      longest: Math.max(prev.longest, currentStreak),
+      longest: Math.max(prev.longest, currentStreak), // Basic implementation, calculating true longest streak from history is more complex
     }));
   };
 
@@ -88,7 +135,7 @@ export function useFocusSessions() {
   const getWeeklyStats = (): DailyStats[] => {
     const stats: DailyStats[] = [];
     const today = new Date();
-    
+
     for (let i = 6; i >= 0; i--) {
       const date = new Date(today);
       date.setDate(date.getDate() - i);
@@ -100,14 +147,14 @@ export function useFocusSessions() {
         sessions: daySessions.length,
       });
     }
-    
+
     return stats;
   };
 
   const getHeatmapData = (): number[][] => {
     const weeks: number[][] = [];
     const today = new Date();
-    
+
     for (let w = 11; w >= 0; w--) {
       const week: number[] = [];
       for (let d = 0; d < 7; d++) {
@@ -120,7 +167,7 @@ export function useFocusSessions() {
       }
       weeks.push(week);
     }
-    
+
     return weeks;
   };
 
@@ -129,7 +176,7 @@ export function useFocusSessions() {
     const today = new Date();
     const startOfWeek = new Date(today);
     startOfWeek.setDate(today.getDate() - today.getDay() + 1);
-    
+
     for (let i = 0; i < 7; i++) {
       const date = new Date(startOfWeek);
       date.setDate(startOfWeek.getDate() + i);
@@ -137,13 +184,14 @@ export function useFocusSessions() {
       const hasSessions = sessions.some((s) => s.date === dateStr && (s.type === "pomodoro" || s.type === "deepFocus"));
       data.push(hasSessions);
     }
-    
+
     return data;
   };
 
   return {
     sessions,
     streak,
+    loading,
     addSession,
     getTodayStats,
     getWeeklyStats,

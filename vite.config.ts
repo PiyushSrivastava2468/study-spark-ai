@@ -1,7 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
-import { componentTagger } from "lovable-tagger";
 import { VitePWA } from "vite-plugin-pwa";
 
 // https://vitejs.dev/config/
@@ -12,13 +11,12 @@ export default defineConfig(({ mode }) => ({
   },
   plugins: [
     react(),
-    mode === "development" && componentTagger(),
     VitePWA({
       registerType: "autoUpdate",
       includeAssets: ["favicon.ico", "icons/*.png"],
       manifest: {
-        name: "FocusFlow - Student Study App",
-        short_name: "FocusFlow",
+        name: "Study Spark AI - Student Study App",
+        short_name: "Study Spark AI",
         description: "Your all-in-one student productivity app with AI-powered study tools, focus timer, and academic tracking",
         theme_color: "#6366f1",
         background_color: "#0a0a0f",

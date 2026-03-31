@@ -1,4 +1,4 @@
-import { User, Bell, Palette, Clock, Shield, Download, Moon, Sun } from "lucide-react";
+import { User, Bell, Palette, Clock, Shield, Download, Moon, Sun, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
@@ -28,7 +28,7 @@ export default function Settings() {
           Settings
         </h1>
         <p className="text-muted-foreground text-sm sm:text-base">
-          Customize your FocusFlow experience
+          Customize your Study Spark AI experience
         </p>
       </div>
 
@@ -279,6 +279,26 @@ export default function Settings() {
                     <p className="font-medium text-foreground mb-2 text-sm sm:text-base">Cloud Sync</p>
                     <p className="text-xs sm:text-sm text-muted-foreground mb-3">Sync your data across all devices</p>
                     <Button className="btn-gradient rounded-xl w-full sm:w-auto">Enable Cloud Sync</Button>
+                  </div>
+
+                  <div className="p-3 sm:p-4 rounded-xl bg-destructive/10 border border-destructive/20">
+                    <p className="font-medium text-destructive mb-2 text-sm sm:text-base">Danger Zone</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground mb-3">
+                      Clear all app data and reset to fresh state. This action cannot be undone.
+                    </p>
+                    <Button
+                      variant="destructive"
+                      className="rounded-xl w-full sm:w-auto"
+                      onClick={() => {
+                        if (confirm("Are you sure you want to delete all data? This cannot be undone.")) {
+                          localStorage.clear();
+                          window.location.reload();
+                        }
+                      }}
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Reset App Data
+                    </Button>
                   </div>
                 </div>
               </div>

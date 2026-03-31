@@ -1,33 +1,23 @@
 import { cn } from "@/lib/utils";
+import { useAppData } from "@/contexts/AppDataContext";
 
-// Generate mock heatmap data for the last 12 weeks
-const generateHeatmapData = () => {
-  const data: number[][] = [];
-  for (let week = 0; week < 12; week++) {
-    const weekData: number[] = [];
-    for (let day = 0; day < 7; day++) {
-      // Random focus hours between 0 and 8
-      weekData.push(Math.floor(Math.random() * 9));
-    }
-    data.push(weekData);
-  }
-  return data;
-};
-
-const heatmapData = generateHeatmapData();
 const days = ["", "Mon", "", "Wed", "", "Fri", ""];
 
-const getIntensityClass = (hours: number) => {
-  if (hours === 0) return "bg-secondary";
-  if (hours <= 2) return "bg-primary/20";
-  if (hours <= 4) return "bg-primary/40";
-  if (hours <= 6) return "bg-primary/60";
+const getIntensityClass = (minutes: number) => {
+  if (minutes === 0) return "bg-secondary";
+  if (minutes <= 30) return "bg-primary/20";
+  if (minutes <= 60) return "bg-primary/40";
+  if (minutes <= 120) return "bg-primary/60";
   return "bg-primary";
 };
 
 export function FocusHeatmap() {
-  const totalHours = heatmapData.flat().reduce((a, b) => a + b, 0);
-  const avgHours = (totalHours / 84).toFixed(1);
+  const { getHeatmapData } = useAppData();
+  const heatmapData = getHeatmapData(); // Returns minutes
+
+  const totalMinutes = heatmapData.flat().reduce((a, b) => a + b, 0);
+  const totalHours = (totalMinutes / 60).toFixed(1);
+  const avgHours = (totalMinutes / 60 / 84).toFixed(1); // 12 weeks * 7 days = 84
 
   return (
     <div className="stat-card">

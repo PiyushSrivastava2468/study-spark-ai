@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
+import { Link } from "react-router-dom";
 import {
   Brain,
   FileText,
@@ -10,8 +11,12 @@ import {
   Layers,
   Clock,
   Send,
-  Image,
+  Image as ImageIcon,
   Mic,
+  Loader2,
+  Settings,
+  X,
+  StopCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,9 +28,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { generateStudyContent, AIFeatureId } from "@/lib/gemini";
+import { extractTextFromPDF, extractTextFromImage } from "@/lib/file-utils";
+import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { AIResultViewer } from "@/components/ai/AIResultViewer";
 
-const aiFeatures = [
+const aiFeatures: { id: AIFeatureId; label: string; icon: any; description: string; color: string }[] = [
   {
     id: "summary",
     label: "Smart Summary",
@@ -74,26 +92,211 @@ const difficultyLevels = ["School", "College", "Competitive"];
 
 export default function AIHub() {
   const [inputText, setInputText] = useState("");
-  const [selectedFeature, setSelectedFeature] = useState("summary");
+  const [selectedFeature, setSelectedFeature] = useState<AIFeatureId>("summary");
   const [difficulty, setDifficulty] = useState("College");
   const [isProcessing, setIsProcessing] = useState(false);
   const [result, setResult] = useState<string | null>(null);
+  const [apiKey, setApiKey] = useState("");
+  const [showApiKeyDialog, setShowApiKeyDialog] = useState(false);
+
+  // File handling state
+  const [isExtracting, setIsExtracting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+
+  // Voice recording state
+  const [isRecording, setIsRecording] = useState(false);
+  const recognitionRef = useRef<any>(null);
+
+  useEffect(() => {
+    const envKey = import.meta.env.VITE_GEMINI_API_KEY;
+    const storedKey = localStorage.getItem("gemini_api_key");
+
+    // Prioritize Environment Variable if it exists
+    if (envKey) {
+      setApiKey(envKey);
+      // Optional: Clear local storage to avoid confusion, or keep it as backup? 
+      // Let's just set the state.
+    } else if (storedKey) {
+      setApiKey(storedKey);
+    }
+  }, []);
+
+  const saveApiKey = (key: string) => {
+    setApiKey(key);
+    localStorage.setItem("gemini_api_key", key);
+    setShowApiKeyDialog(false);
+    toast.success("API Key saved successfully");
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>, type: 'pdf' | 'image') => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsExtracting(true);
+    try {
+      let text = "";
+      if (type === 'pdf') {
+        text = await extractTextFromPDF(file);
+      } else {
+        text = await extractTextFromImage(file);
+      }
+
+      if (text.trim()) {
+        setInputText((prev) => prev ? prev + "\n\n" + text : text);
+        toast.success(`${type.toUpperCase()} content extracted!`);
+      } else {
+        toast.error("Could not extract text. Try a clearer file.");
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error(`Failed to process ${type}`);
+    } finally {
+      setIsExtracting(false);
+      // Reset input
+      if (event.target) event.target.value = "";
+    }
+  };
+
+  const toggleRecording = () => {
+    if (isRecording) {
+      if (recognitionRef.current) recognitionRef.current.stop();
+      setIsRecording(false);
+      return;
+    }
+
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      toast.error("Your browser does not support speech recognition.");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+
+    recognition.onresult = (event: any) => {
+      let interimTranscript = '';
+      let finalTranscript = '';
+
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        if (event.results[i].isFinal) {
+          finalTranscript += event.results[i][0].transcript;
+        } else {
+          interimTranscript += event.results[i][0].transcript;
+        }
+      }
+
+      if (finalTranscript) {
+        setInputText(prev => prev + " " + finalTranscript);
+      }
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error("Speech recognition error", event.error);
+      setIsRecording(false);
+      toast.error("Error occurred in recognition: " + event.error);
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsRecording(true);
+  };
+
+  // Cleanup speech recognition on unmount
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) recognitionRef.current.stop();
+    };
+  }, []);
 
   const handleGenerate = async () => {
-    if (!inputText.trim()) return;
-    
+    if (!inputText.trim()) {
+      toast.error("Please enter some text or upload a file first.");
+      return;
+    }
+
+    if (!apiKey) {
+      setShowApiKeyDialog(true);
+      return;
+    }
+
     setIsProcessing(true);
-    // Simulate AI processing
-    setTimeout(() => {
-      setResult(`Here's your ${selectedFeature} for the topic:\n\n${inputText}\n\nThis is a demo result. Connect to Lovable Cloud to enable real AI-powered study assistance!`);
+    try {
+      console.log("Generating with API Key length:", apiKey.length); // Debug log
+      const output = await generateStudyContent(apiKey, selectedFeature, inputText, difficulty);
+      setResult(prev => output); // Just set the text for now
+      toast.success("Generated successfully!");
+    } catch (error: any) {
+      console.error("Content Generation Error:", error);
+
+      // Auto-diagnose structure errors
+      if (error.message.includes("404") || error.message.includes("not found")) {
+        toast.error("Checking available models... check console (F12)");
+        try {
+          // Dynamically import to avoid circular dep issues if any, though here it's fine
+          const { validateGeminiConnection } = await import("@/lib/gemini");
+          const models = await validateGeminiConnection(apiKey);
+          console.log("Your API Key has access to:", models);
+          toast.info(`Found ${models.length} models. Check console for names.`);
+        } catch (validationError: any) {
+          toast.error("API Key Validation Failed: " + validationError.message);
+        }
+      }
+
+      toast.error(`Error: ${error.message || "Failed to generate content"}`);
+    } finally {
       setIsProcessing(false);
-    }, 2000);
+    }
   };
 
   return (
     <div className="p-8 max-w-6xl mx-auto">
       {/* Header */}
-      <div className="text-center mb-10 animate-fade-in">
+      <div className="text-center mb-10 animate-fade-in relative">
+        <div className="absolute top-0 right-0">
+          <Dialog open={showApiKeyDialog} onOpenChange={setShowApiKeyDialog}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2">
+                <Settings className="w-4 h-4" />
+                API Key
+              </Button>
+            </DialogTrigger>
+            <Link to="/ai-library">
+              <Button variant="ghost" size="sm" className="gap-2 ml-2">
+                <BookOpen className="w-4 h-4" />
+                My Library
+              </Button>
+            </Link>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Configure AI Model</DialogTitle>
+              </DialogHeader>
+              <div className="py-4 space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  To use the AI features for free, please provide a Google Gemini API Key.
+                  It's free to get and use within limits.
+                </p>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Gemini API Key</label>
+                  <Input
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    placeholder="AIzaSy..."
+                    type="password"
+                  />
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Don't have a key? <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-primary underline">Get one here</a>.
+                </div>
+              </div>
+              <DialogFooter>
+                <Button onClick={() => saveApiKey(apiKey)}>Save Key</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-accent/10 text-accent mb-4">
           <Sparkles className="w-4 h-4" />
           <span className="text-sm font-medium">AI-Powered</span>
@@ -110,7 +313,7 @@ export default function AIHub() {
         {/* Input Section */}
         <div className="lg:col-span-2 space-y-6">
           {/* AI Features Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 animate-fade-in stagger-1 opacity-0">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 animate-fade-in stagger-1">
             {aiFeatures.map((feature) => {
               const Icon = feature.icon;
               const isSelected = selectedFeature === feature.id;
@@ -145,7 +348,7 @@ export default function AIHub() {
           </div>
 
           {/* Input Area */}
-          <div className="glass-card rounded-2xl p-6 animate-fade-in stagger-2 opacity-0">
+          <div className="glass-card rounded-2xl p-6 animate-fade-in stagger-2">
             <Tabs defaultValue="text" className="w-full">
               <TabsList className="mb-4">
                 <TabsTrigger value="text" className="gap-2">
@@ -157,7 +360,7 @@ export default function AIHub() {
                   PDF
                 </TabsTrigger>
                 <TabsTrigger value="image" className="gap-2">
-                  <Image className="w-4 h-4" />
+                  <ImageIcon className="w-4 h-4" />
                   Image
                 </TabsTrigger>
                 <TabsTrigger value="voice" className="gap-2">
@@ -176,28 +379,77 @@ export default function AIHub() {
               </TabsContent>
 
               <TabsContent value="upload" className="mt-0">
-                <div className="border-2 border-dashed border-border rounded-xl p-10 text-center hover:border-primary/50 transition-colors cursor-pointer">
-                  <Upload className="w-10 h-10 mx-auto mb-4 text-muted-foreground" />
-                  <p className="font-medium text-foreground mb-1">Drop your PDF here</p>
-                  <p className="text-sm text-muted-foreground">or click to browse</p>
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="border-2 border-dashed border-border rounded-xl p-10 text-center hover:border-primary/50 transition-colors cursor-pointer group"
+                >
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    accept=".pdf"
+                    onChange={(e) => handleFileUpload(e, 'pdf')}
+                  />
+                  {isExtracting ? (
+                    <div className="flex flex-col items-center">
+                      <Loader2 className="w-10 h-10 mx-auto mb-4 text-primary animate-spin" />
+                      <p className="font-medium text-foreground mb-1">Extracting text...</p>
+                    </div>
+                  ) : (
+                    <>
+                      <Upload className="w-10 h-10 mx-auto mb-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                      <p className="font-medium text-foreground mb-1">Drop your PDF here</p>
+                      <p className="text-sm text-muted-foreground">or click to browse</p>
+                    </>
+                  )}
                 </div>
               </TabsContent>
 
               <TabsContent value="image" className="mt-0">
-                <div className="border-2 border-dashed border-border rounded-xl p-10 text-center hover:border-primary/50 transition-colors cursor-pointer">
-                  <Image className="w-10 h-10 mx-auto mb-4 text-muted-foreground" />
-                  <p className="font-medium text-foreground mb-1">Upload handwritten notes</p>
-                  <p className="text-sm text-muted-foreground">We'll extract text using OCR</p>
+                <div
+                  onClick={() => imageInputRef.current?.click()}
+                  className="border-2 border-dashed border-border rounded-xl p-10 text-center hover:border-primary/50 transition-colors cursor-pointer group"
+                >
+                  <input
+                    type="file"
+                    ref={imageInputRef}
+                    className="hidden"
+                    accept="image/*"
+                    onChange={(e) => handleFileUpload(e, 'image')}
+                  />
+                  {isExtracting ? (
+                    <div className="flex flex-col items-center">
+                      <Loader2 className="w-10 h-10 mx-auto mb-4 text-primary animate-spin" />
+                      <p className="font-medium text-foreground mb-1">Extracting text...</p>
+                    </div>
+                  ) : (
+                    <>
+                      <ImageIcon className="w-10 h-10 mx-auto mb-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                      <p className="font-medium text-foreground mb-1">Upload study image</p>
+                      <p className="text-sm text-muted-foreground">We'll extract text using OCR</p>
+                    </>
+                  )}
                 </div>
               </TabsContent>
 
               <TabsContent value="voice" className="mt-0">
                 <div className="border-2 border-dashed border-border rounded-xl p-10 text-center">
-                  <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                    <Mic className="w-8 h-8 text-primary" />
+                  <div className="w-20 h-20 rounded-full bg-secondary flex items-center justify-center mx-auto mb-6">
+                    <Button
+                      size="icon"
+                      variant={isRecording ? "destructive" : "default"}
+                      className={cn("w-14 h-14 rounded-full transition-all", isRecording && "animate-pulse")}
+                      onClick={toggleRecording}
+                    >
+                      {isRecording ? <StopCircle className="w-8 h-8" /> : <Mic className="w-8 h-8" />}
+                    </Button>
                   </div>
-                  <p className="font-medium text-foreground mb-1">Click to start recording</p>
-                  <p className="text-sm text-muted-foreground">Speak your notes or topic</p>
+                  <p className="font-medium text-foreground mb-1">
+                    {isRecording ? "Listening..." : "Click to start recording"}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {isRecording ? "Speak now" : "Speak your notes or topic"}
+                  </p>
                 </div>
               </TabsContent>
             </Tabs>
@@ -218,13 +470,13 @@ export default function AIHub() {
 
               <Button
                 onClick={handleGenerate}
-                disabled={!inputText.trim() || isProcessing}
-                className="btn-gradient rounded-xl px-6"
+                disabled={!inputText.trim() || isProcessing || isExtracting}
+                className="btn-gradient rounded-xl px-6 min-w-[120px]"
               >
                 {isProcessing ? (
                   <>
-                    <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin mr-2" />
-                    Processing...
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    Generating...
                   </>
                 ) : (
                   <>
@@ -234,34 +486,36 @@ export default function AIHub() {
                 )}
               </Button>
             </div>
+
+            {/* Text Preview (optional, good for verifying extraction) */}
+            {inputText.length > 0 && (
+              <div className="mt-4 p-3 bg-secondary/30 rounded-lg text-xs text-muted-foreground max-h-20 overflow-y-auto truncate">
+                Preview: {inputText.substring(0, 150)}...
+              </div>
+            )}
           </div>
         </div>
 
         {/* Results Panel */}
-        <div className="animate-fade-in stagger-3 opacity-0">
-          <div className="glass-card rounded-2xl p-6 sticky top-8">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 rounded-xl bg-primary/10">
-                <Brain className="w-5 h-5 text-primary" />
+        {/* Results Panel */}
+        <div className={cn("animate-fade-in stagger-3", !result && "hidden lg:block")}>
+          {result ? (
+            <AIResultViewer
+              result={result}
+              onClose={() => setResult(null)}
+              featureId={selectedFeature}
+            />
+          ) : (
+            <div className="glass-card rounded-2xl p-6 sticky top-8 text-center py-20 min-h-[400px] flex flex-col items-center justify-center border-dashed border-2 border-border/50 bg-secondary/10">
+              <div className="w-20 h-20 rounded-full bg-secondary/50 flex items-center justify-center mb-6 animate-pulse">
+                <Sparkles className="w-10 h-10 text-muted-foreground/50" />
               </div>
-              <h3 className="font-semibold text-foreground">AI Output</h3>
+              <h3 className="text-xl font-semibold text-foreground mb-2">Ready to Create</h3>
+              <p className="text-muted-foreground max-w-xs mx-auto">
+                Select a tool, enter your topic, and watch the AI magic happen right here.
+              </p>
             </div>
-
-            {result ? (
-              <div className="prose prose-sm dark:prose-invert max-w-none">
-                <p className="text-foreground whitespace-pre-wrap">{result}</p>
-              </div>
-            ) : (
-              <div className="text-center py-10">
-                <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center mx-auto mb-4">
-                  <Sparkles className="w-8 h-8 text-muted-foreground" />
-                </div>
-                <p className="text-muted-foreground">
-                  Enter your study material and click Generate to see AI-powered results here
-                </p>
-              </div>
-            )}
-          </div>
+          )}
         </div>
       </div>
     </div>

@@ -11,7 +11,7 @@ import { useAppData } from "@/contexts/AppDataContext";
 
 export default function Dashboard() {
   const { tasks, goals, sessions, getTodayStats, getAverageProgress } = useAppData();
-  
+
   const currentHour = new Date().getHours();
   const greeting =
     currentHour < 12 ? "Good morning" : currentHour < 18 ? "Good afternoon" : "Good evening";
@@ -43,7 +43,7 @@ export default function Dashboard() {
           {greeting}, Student! 👋
         </h1>
         <p className="text-muted-foreground text-sm sm:text-base">
-          {hasData 
+          {hasData
             ? "Let's make today productive. You've got this!"
             : "Welcome! Start by adding your first task or goal."}
         </p>
@@ -56,7 +56,7 @@ export default function Dashboard() {
             <Sparkles className="w-10 h-10 text-primary" />
           </div>
           <h2 className="text-xl font-semibold text-foreground mb-2">
-            Welcome to FocusFlow!
+            Welcome to Study Spark AI!
           </h2>
           <p className="text-muted-foreground mb-6 max-w-md mx-auto">
             Your personal study companion. Start by adding tasks, setting goals, or beginning a focus session.
