@@ -76,17 +76,41 @@ async function callOpenAI(
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     const errorMessage = errorData?.error?.message || `HTTP ${response.status}`;
-    
-    // Check for rate limit
+    const errorCode = errorData?.error?.code || "";
+    const errorType = errorData?.error?.type || "";
+
+    console.error(`OpenAI Error [${response.status}]:`, { errorMessage, errorCode, errorType });
+
+    // 401 = Invalid API key
+    if (response.status === 401) {
+      throw new Error(`AUTH_ERROR: Invalid API key. Please check your VITE_OPENAI_API_KEY. Details: ${errorMessage}`);
+    }
+
+    // 429 = Could be rate limit OR insufficient quota
     if (response.status === 429) {
+      // Insufficient quota = billing/credits issue (not a temporary rate limit)
+      if (errorCode === "insufficient_quota" || errorMessage.toLowerCase().includes("quota")) {
+        throw new Error(
+          `QUOTA_ERROR: Your OpenAI account has insufficient credits/quota. ` +
+          `Please add billing at https://platform.openai.com/account/billing. ` +
+          `Details: ${errorMessage}`
+        );
+      }
+      // Actual rate limit (temporary)
       throw new Error(`RATE_LIMIT: ${errorMessage}`);
     }
-    // Check for model not found
+
+    // 404 = Model not found
     if (response.status === 404) {
       throw new Error(`MODEL_NOT_FOUND: ${errorMessage}`);
     }
+
+    // 403 = Forbidden (permissions issue)
+    if (response.status === 403) {
+      throw new Error(`PERMISSION_ERROR: Your API key doesn't have access to this model. Details: ${errorMessage}`);
+    }
     
-    throw new Error(errorMessage);
+    throw new Error(`OpenAI API Error (${response.status}): ${errorMessage}`);
   }
 
   const data = await response.json();
@@ -122,7 +146,12 @@ export const generateStudyContent = async (
       return result;
     } catch (error: any) {
       const msg = error.message || String(error);
-      console.warn(`✗ ${model} failed:`, msg.substring(0, 120));
+      console.warn(`✗ ${model} failed:`, msg.substring(0, 200));
+
+      // Quota/Auth/Permission errors affect ALL models — stop immediately
+      if (msg.startsWith("QUOTA_ERROR:") || msg.startsWith("AUTH_ERROR:") || msg.startsWith("PERMISSION_ERROR:")) {
+        throw new Error(msg.replace(/^(QUOTA_ERROR|AUTH_ERROR|PERMISSION_ERROR):\s*/, ""));
+      }
 
       if (msg.startsWith("RATE_LIMIT:")) {
         errors.push(`${model}: rate limited`);
@@ -139,7 +168,7 @@ export const generateStudyContent = async (
   }
 
   throw new Error(
-    "All AI models are currently unavailable. Please try again in a few minutes.\n\n" +
+    "All AI models are currently rate-limited. Please wait a moment and try again.\n\n" +
     `Details:\n${errors.join("\n")}`
   );
 };
@@ -174,6 +203,12 @@ export const chatWithAI = async (
       return result;
     } catch (error: any) {
       const msg = error.message || String(error);
+
+      // Quota/Auth/Permission errors affect ALL models — stop immediately
+      if (msg.startsWith("QUOTA_ERROR:") || msg.startsWith("AUTH_ERROR:") || msg.startsWith("PERMISSION_ERROR:")) {
+        throw new Error(msg.replace(/^(QUOTA_ERROR|AUTH_ERROR|PERMISSION_ERROR):\s*/, ""));
+      }
+
       if (msg.startsWith("RATE_LIMIT:") || msg.startsWith("MODEL_NOT_FOUND:")) {
         errors.push(`${model}: ${msg}`);
         continue;
