@@ -5,6 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
+import { chatWithAI } from "@/lib/openai";
 
 interface ChatMessage {
   id: string;
@@ -28,19 +29,9 @@ export default function AIChat() {
     scrollToBottom();
   }, [messages]);
 
-  const getApiKey = () => {
-    return import.meta.env.VITE_GEMINI_API_KEY || localStorage.getItem("gemini_api_key") || "";
-  };
-
   const sendMessage = async () => {
     const trimmed = input.trim();
     if (!trimmed || isLoading) return;
-
-    const apiKey = getApiKey();
-    if (!apiKey) {
-      toast.error("Please set your Gemini API key in Settings or AI Hub first.");
-      return;
-    }
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
@@ -54,75 +45,35 @@ export default function AIChat() {
     setIsLoading(true);
 
     try {
-      const { GoogleGenerativeAI } = await import("@google/generative-ai");
-      const { getAvailableModels } = await import("@/lib/gemini");
-      const genAI = new GoogleGenerativeAI(apiKey);
-      const models = await getAvailableModels(apiKey);
-
       // Build conversation history for context
       const history = messages.map((m) => ({
-        role: m.role === "user" ? "user" : "model",
-        parts: [{ text: m.content }],
+        role: m.role as "user" | "assistant",
+        content: m.content,
       }));
 
-      let lastError: any = null;
+      const text = await chatWithAI(history, trimmed);
 
-      // Try each model until one works
-      for (const modelName of models) {
-        try {
-          console.log(`AI Chat trying model: ${modelName}`);
-          const model = genAI.getGenerativeModel({ model: modelName });
-          const chat = model.startChat({
-            history,
-            generationConfig: { maxOutputTokens: 2048 },
-          });
+      const assistantMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: text,
+        timestamp: new Date(),
+      };
 
-          const result = await chat.sendMessage(trimmed);
-          const response = await result.response;
-          const text = response.text();
-
-          const assistantMessage: ChatMessage = {
-            id: (Date.now() + 1).toString(),
-            role: "assistant",
-            content: text,
-            timestamp: new Date(),
-          };
-
-          setMessages((prev) => [...prev, assistantMessage]);
-          return; // Success — exit
-        } catch (err: any) {
-          lastError = err;
-          const msg = String(err?.message || "").toLowerCase();
-          if (msg.includes("429") || msg.includes("quota") || msg.includes("rate") || msg.includes("limit") || msg.includes("resource exhausted")) {
-            console.warn(`${modelName} rate-limited, trying next...`);
-            continue;
-          }
-          if (msg.includes("404") || msg.includes("not found")) {
-            continue;
-          }
-          throw err; // Non-rate-limit error, don't retry
-        }
-      }
-
-      // All models failed
-      throw new Error(
-        "⏳ All AI models have reached their free tier quota. This resets automatically. " +
-        "Wait a few minutes and try again, or get a new API key from https://aistudio.google.com/app/apikey"
-      );
+      setMessages((prev) => [...prev, assistantMessage]);
     } catch (error: any) {
       console.error("Chat error:", error);
       const errText = error.message || "Failed to generate response";
-      const isQuota = errText.toLowerCase().includes("quota") || errText.includes("⏳");
+      const isQuota = errText.includes("rate-limited") || errText.includes("⏳");
 
       const errorMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
         content: isQuota
-          ? "⏳ **Rate limit reached.** All available AI models have hit their free tier quota.\n\n" +
+          ? "⏳ **Rate limit reached.** The AI models are temporarily unavailable.\n\n" +
             "**What you can do:**\n" +
             "- Wait a few minutes and try again\n" +
-            "- Get a new free API key from [Google AI Studio](https://aistudio.google.com/app/apikey)\n" +
-            "- Set the new key in **Settings** or **AI Hub**"
+            "- Check your API key quota in the OpenAI dashboard"
           : `Sorry, I encountered an error: ${errText}`,
         timestamp: new Date(),
       };

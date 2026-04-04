@@ -1,36 +1,32 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Video,
-  Plus,
   Play,
   Clock,
-  BookOpen,
-  ChevronRight,
-  ExternalLink,
-  Trash2,
-  Edit2,
-  Check,
-  X,
   Search,
-  Filter,
   GraduationCap,
+  CheckCircle2,
+  BookOpen,
+  ExternalLink,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
 
 interface Lecture {
   id: string;
   title: string;
   subject: string;
   description: string;
-  videoUrl: string;
+  video_url: string;
   duration: string;
   notes: string;
-  completed: boolean;
-  createdAt: Date;
+  thumbnail_url: string | null;
+  is_published: boolean;
+  created_at: string;
 }
 
 const SUBJECT_COLORS: Record<string, string> = {
@@ -48,108 +44,66 @@ const SUBJECTS = Object.keys(SUBJECT_COLORS);
 
 export default function Lectures() {
   const [lectures, setLectures] = useState<Lecture[]>([]);
-  const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterSubject, setFilterSubject] = useState("All");
-  const [filterStatus, setFilterStatus] = useState<"all" | "completed" | "pending">("all");
+  const [completedIds, setCompletedIds] = useState<string[]>([]);
 
-  // Form state
-  const [formTitle, setFormTitle] = useState("");
-  const [formSubject, setFormSubject] = useState("Other");
-  const [formDescription, setFormDescription] = useState("");
-  const [formVideoUrl, setFormVideoUrl] = useState("");
-  const [formDuration, setFormDuration] = useState("");
-  const [formNotes, setFormNotes] = useState("");
-
-  const resetForm = () => {
-    setFormTitle("");
-    setFormSubject("Other");
-    setFormDescription("");
-    setFormVideoUrl("");
-    setFormDuration("");
-    setFormNotes("");
-    setShowForm(false);
-    setEditingId(null);
-  };
-
-  const saveLecture = () => {
-    if (!formTitle.trim()) {
-      toast.error("Please enter a lecture title");
-      return;
+  // Load completed lectures from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem("completed_lectures");
+    if (saved) {
+      try {
+        setCompletedIds(JSON.parse(saved));
+      } catch { }
     }
+  }, []);
 
-    if (editingId) {
-      setLectures((prev) =>
-        prev.map((l) =>
-          l.id === editingId
-            ? {
-                ...l,
-                title: formTitle.trim(),
-                subject: formSubject,
-                description: formDescription.trim(),
-                videoUrl: formVideoUrl.trim(),
-                duration: formDuration.trim(),
-                notes: formNotes.trim(),
-              }
-            : l
-        )
-      );
-      toast.success("Lecture updated!");
-    } else {
-      const newLecture: Lecture = {
-        id: Date.now().toString(),
-        title: formTitle.trim(),
-        subject: formSubject,
-        description: formDescription.trim(),
-        videoUrl: formVideoUrl.trim(),
-        duration: formDuration.trim() || "—",
-        notes: formNotes.trim(),
-        completed: false,
-        createdAt: new Date(),
-      };
-      setLectures((prev) => [newLecture, ...prev]);
-      toast.success("Lecture added!");
+  // Fetch lectures from Supabase
+  useEffect(() => {
+    fetchLectures();
+  }, []);
+
+  const fetchLectures = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("lectures")
+        .select("*")
+        .eq("is_published", true)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setLectures(data || []);
+    } catch (err: any) {
+      console.error("Error fetching lectures:", err);
+      // Don't show error on first load if table doesn't exist yet
+      if (!err.message?.includes("does not exist")) {
+        toast.error("Failed to load lectures");
+      }
+    } finally {
+      setLoading(false);
     }
-    resetForm();
-  };
-
-  const editLecture = (lecture: Lecture) => {
-    setFormTitle(lecture.title);
-    setFormSubject(lecture.subject);
-    setFormDescription(lecture.description);
-    setFormVideoUrl(lecture.videoUrl);
-    setFormDuration(lecture.duration === "—" ? "" : lecture.duration);
-    setFormNotes(lecture.notes);
-    setEditingId(lecture.id);
-    setShowForm(true);
-  };
-
-  const deleteLecture = (id: string) => {
-    setLectures((prev) => prev.filter((l) => l.id !== id));
-    toast.success("Lecture deleted");
   };
 
   const toggleComplete = (id: string) => {
-    setLectures((prev) =>
-      prev.map((l) => (l.id === id ? { ...l, completed: !l.completed } : l))
-    );
+    setCompletedIds((prev) => {
+      const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
+      localStorage.setItem("completed_lectures", JSON.stringify(next));
+      return next;
+    });
   };
 
   const filteredLectures = lectures.filter((l) => {
     const matchesSearch =
       l.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       l.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      l.description.toLowerCase().includes(searchQuery.toLowerCase());
+      (l.description || "").toLowerCase().includes(searchQuery.toLowerCase());
     const matchesSubject = filterSubject === "All" || l.subject === filterSubject;
-    const matchesStatus =
-      filterStatus === "all" ||
-      (filterStatus === "completed" && l.completed) ||
-      (filterStatus === "pending" && !l.completed);
-    return matchesSearch && matchesSubject && matchesStatus;
+    return matchesSearch && matchesSubject;
   });
 
-  const completedCount = lectures.filter((l) => l.completed).length;
+  const completedCount = lectures.filter((l) => completedIds.includes(l.id)).length;
 
   return (
     <div className="p-4 sm:p-8 max-w-5xl mx-auto pb-20">
@@ -166,80 +120,18 @@ export default function Lectures() {
             </h1>
             <p className="text-muted-foreground">
               {lectures.length === 0
-                ? "Organize your lectures, video links, and notes in one place."
+                ? "Lectures uploaded by your institution will appear here."
                 : `${completedCount}/${lectures.length} completed`}
             </p>
           </div>
-          <Button onClick={() => setShowForm(true)} className="btn-gradient rounded-xl gap-2">
-            <Plus className="w-4 h-4" />
-            Add Lecture
-          </Button>
+          {lectures.length > 0 && (
+            <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/10 text-primary">
+              <BookOpen className="w-4 h-4" />
+              <span className="text-sm font-semibold">{lectures.length} Lectures Available</span>
+            </div>
+          )}
         </div>
       </div>
-
-      {/* Add/Edit Form */}
-      {showForm && (
-        <div className="glass-card rounded-2xl border border-border p-6 mb-8 animate-fade-in">
-          <h2 className="text-lg font-bold text-foreground mb-4">
-            {editingId ? "Edit Lecture" : "Add New Lecture"}
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Input
-              placeholder="Lecture Title *"
-              value={formTitle}
-              onChange={(e) => setFormTitle(e.target.value)}
-              className="input-focus"
-            />
-            <select
-              value={formSubject}
-              onChange={(e) => setFormSubject(e.target.value)}
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              {SUBJECTS.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-            <Input
-              placeholder="Video URL (YouTube, Drive, etc.)"
-              value={formVideoUrl}
-              onChange={(e) => setFormVideoUrl(e.target.value)}
-              className="input-focus"
-            />
-            <Input
-              placeholder="Duration (e.g., 45 min)"
-              value={formDuration}
-              onChange={(e) => setFormDuration(e.target.value)}
-              className="input-focus"
-            />
-            <Textarea
-              placeholder="Description or topic overview"
-              value={formDescription}
-              onChange={(e) => setFormDescription(e.target.value)}
-              className="input-focus sm:col-span-2"
-              rows={2}
-            />
-            <Textarea
-              placeholder="Personal notes about this lecture"
-              value={formNotes}
-              onChange={(e) => setFormNotes(e.target.value)}
-              className="input-focus sm:col-span-2"
-              rows={2}
-            />
-          </div>
-          <div className="flex gap-3 mt-4">
-            <Button onClick={saveLecture} className="btn-gradient rounded-xl gap-2">
-              <Check className="w-4 h-4" />
-              {editingId ? "Update" : "Save"}
-            </Button>
-            <Button variant="outline" onClick={resetForm} className="rounded-xl gap-2">
-              <X className="w-4 h-4" />
-              Cancel
-            </Button>
-          </div>
-        </div>
-      )}
 
       {/* Filters */}
       {lectures.length > 0 && (
@@ -263,20 +155,17 @@ export default function Lectures() {
               <option key={s} value={s}>{s}</option>
             ))}
           </select>
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value as any)}
-            className="h-10 rounded-md border border-input bg-background px-3 text-sm min-w-[120px]"
-          >
-            <option value="all">All Status</option>
-            <option value="pending">Pending</option>
-            <option value="completed">Completed</option>
-          </select>
         </div>
       )}
 
-      {/* Lecture List */}
-      {filteredLectures.length === 0 && lectures.length === 0 ? (
+      {/* Loading State */}
+      {loading ? (
+        <div className="flex flex-col items-center justify-center py-20">
+          <Loader2 className="w-10 h-10 animate-spin text-primary mb-4" />
+          <p className="text-muted-foreground">Loading lectures...</p>
+        </div>
+      ) : filteredLectures.length === 0 && lectures.length === 0 ? (
+        /* Empty State */
         <div className="text-center py-20 animate-fade-in">
           <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center mb-6 mx-auto">
             <GraduationCap className="w-10 h-10 text-primary/60" />
@@ -285,43 +174,42 @@ export default function Lectures() {
             No Lectures Yet
           </h2>
           <p className="text-muted-foreground max-w-md mx-auto mb-6">
-            Add your first lecture to start organizing your study materials,
-            video links, and class notes.
+            Your institution hasn't uploaded any lectures yet. Check back later
+            for study materials, video lectures, and course content.
           </p>
-          <Button onClick={() => setShowForm(true)} className="btn-gradient rounded-xl gap-2">
-            <Plus className="w-4 h-4" />
-            Add Your First Lecture
-          </Button>
         </div>
       ) : filteredLectures.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
           No lectures match your search/filters.
         </div>
       ) : (
+        /* Lecture List */
         <div className="space-y-4">
           {filteredLectures.map((lecture) => {
             const colorClass = SUBJECT_COLORS[lecture.subject] || SUBJECT_COLORS["Other"];
+            const isCompleted = completedIds.includes(lecture.id);
             return (
               <div
                 key={lecture.id}
                 className={cn(
                   "group rounded-2xl border p-5 transition-all duration-300 hover:shadow-md bg-gradient-to-br",
                   colorClass,
-                  lecture.completed && "opacity-70"
+                  isCompleted && "opacity-70"
                 )}
               >
                 <div className="flex items-start gap-4">
-                  {/* Checkbox */}
+                  {/* Completion Toggle */}
                   <button
                     onClick={() => toggleComplete(lecture.id)}
                     className={cn(
                       "mt-1 w-6 h-6 rounded-md border-2 flex items-center justify-center shrink-0 transition-all",
-                      lecture.completed
+                      isCompleted
                         ? "bg-primary border-primary text-primary-foreground"
                         : "border-muted-foreground/30 hover:border-primary"
                     )}
+                    title={isCompleted ? "Mark as not completed" : "Mark as completed"}
                   >
-                    {lecture.completed && <Check className="w-4 h-4" />}
+                    {isCompleted && <CheckCircle2 className="w-4 h-4" />}
                   </button>
 
                   {/* Content */}
@@ -330,15 +218,17 @@ export default function Lectures() {
                       <span className="text-xs px-2 py-0.5 rounded-full bg-background/80 text-muted-foreground font-medium">
                         {lecture.subject}
                       </span>
-                      <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {lecture.duration}
-                      </span>
+                      {lecture.duration && (
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {lecture.duration}
+                        </span>
+                      )}
                     </div>
                     <h3
                       className={cn(
                         "text-lg font-bold text-foreground",
-                        lecture.completed && "line-through"
+                        isCompleted && "line-through"
                       )}
                     >
                       {lecture.title}
@@ -356,31 +246,20 @@ export default function Lectures() {
                     )}
                   </div>
 
-                  {/* Actions */}
+                  {/* Watch Button */}
                   <div className="flex items-center gap-1 shrink-0">
-                    {lecture.videoUrl && (
+                    {lecture.video_url && (
                       <a
-                        href={lecture.videoUrl}
+                        href={lecture.video_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="p-2 rounded-lg hover:bg-background/80 transition-colors text-primary"
-                        title="Open Video"
+                        className="flex items-center gap-2 px-3 py-2 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary transition-colors text-sm font-medium"
+                        title="Watch Lecture"
                       >
                         <Play className="w-4 h-4" />
+                        Watch
                       </a>
                     )}
-                    <button
-                      onClick={() => editLecture(lecture)}
-                      className="p-2 rounded-lg hover:bg-background/80 transition-colors text-muted-foreground hover:text-foreground"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => deleteLecture(lecture.id)}
-                      className="p-2 rounded-lg hover:bg-background/80 transition-colors text-muted-foreground hover:text-destructive"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
                   </div>
                 </div>
               </div>

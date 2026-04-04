@@ -14,8 +14,6 @@ import {
   Image as ImageIcon,
   Mic,
   Loader2,
-  Settings,
-  X,
   StopCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -28,19 +26,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { generateStudyContent, AIFeatureId } from "@/lib/gemini";
+import { generateStudyContent, type AIFeatureId } from "@/lib/openai";
 import { extractTextFromPDF, extractTextFromImage } from "@/lib/file-utils";
 import { toast } from "sonner";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import { AIResultViewer } from "@/components/ai/AIResultViewer";
 
 const aiFeatures: { id: AIFeatureId; label: string; icon: any; description: string; color: string }[] = [
@@ -96,8 +85,6 @@ export default function AIHub() {
   const [difficulty, setDifficulty] = useState("College");
   const [isProcessing, setIsProcessing] = useState(false);
   const [result, setResult] = useState<string | null>(null);
-  const [apiKey, setApiKey] = useState("");
-  const [showApiKeyDialog, setShowApiKeyDialog] = useState(false);
 
   // File handling state
   const [isExtracting, setIsExtracting] = useState(false);
@@ -107,27 +94,6 @@ export default function AIHub() {
   // Voice recording state
   const [isRecording, setIsRecording] = useState(false);
   const recognitionRef = useRef<any>(null);
-
-  useEffect(() => {
-    const envKey = import.meta.env.VITE_GEMINI_API_KEY;
-    const storedKey = localStorage.getItem("gemini_api_key");
-
-    // Prioritize Environment Variable if it exists
-    if (envKey) {
-      setApiKey(envKey);
-      // Optional: Clear local storage to avoid confusion, or keep it as backup? 
-      // Let's just set the state.
-    } else if (storedKey) {
-      setApiKey(storedKey);
-    }
-  }, []);
-
-  const saveApiKey = (key: string) => {
-    setApiKey(key);
-    localStorage.setItem("gemini_api_key", key);
-    setShowApiKeyDialog(false);
-    toast.success("API Key saved successfully");
-  };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>, type: 'pdf' | 'image') => {
     const file = event.target.files?.[0];
@@ -176,14 +142,11 @@ export default function AIHub() {
     recognition.interimResults = true;
 
     recognition.onresult = (event: any) => {
-      let interimTranscript = '';
       let finalTranscript = '';
 
       for (let i = event.resultIndex; i < event.results.length; ++i) {
         if (event.results[i].isFinal) {
           finalTranscript += event.results[i][0].transcript;
-        } else {
-          interimTranscript += event.results[i][0].transcript;
         }
       }
 
@@ -216,34 +179,13 @@ export default function AIHub() {
       return;
     }
 
-    if (!apiKey) {
-      setShowApiKeyDialog(true);
-      return;
-    }
-
     setIsProcessing(true);
     try {
-      console.log("Generating with API Key length:", apiKey.length); // Debug log
-      const output = await generateStudyContent(apiKey, selectedFeature, inputText, difficulty);
-      setResult(prev => output); // Just set the text for now
+      const output = await generateStudyContent(selectedFeature, inputText, difficulty);
+      setResult(output);
       toast.success("Generated successfully!");
     } catch (error: any) {
       console.error("Content Generation Error:", error);
-
-      // Auto-diagnose structure errors
-      if (error.message.includes("404") || error.message.includes("not found")) {
-        toast.error("Checking available models... check console (F12)");
-        try {
-          // Dynamically import to avoid circular dep issues if any, though here it's fine
-          const { validateGeminiConnection } = await import("@/lib/gemini");
-          const models = await validateGeminiConnection(apiKey);
-          console.log("Your API Key has access to:", models);
-          toast.info(`Found ${models.length} models. Check console for names.`);
-        } catch (validationError: any) {
-          toast.error("API Key Validation Failed: " + validationError.message);
-        }
-      }
-
       toast.error(`Error: ${error.message || "Failed to generate content"}`);
     } finally {
       setIsProcessing(false);
@@ -255,46 +197,12 @@ export default function AIHub() {
       {/* Header */}
       <div className="text-center mb-10 animate-fade-in relative">
         <div className="absolute top-0 right-0">
-          <Dialog open={showApiKeyDialog} onOpenChange={setShowApiKeyDialog}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2">
-                <Settings className="w-4 h-4" />
-                API Key
-              </Button>
-            </DialogTrigger>
-            <Link to="/ai-library">
-              <Button variant="ghost" size="sm" className="gap-2 ml-2">
-                <BookOpen className="w-4 h-4" />
-                My Library
-              </Button>
-            </Link>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Configure AI Model</DialogTitle>
-              </DialogHeader>
-              <div className="py-4 space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  To use the AI features for free, please provide a Google Gemini API Key.
-                  It's free to get and use within limits.
-                </p>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Gemini API Key</label>
-                  <Input
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
-                    placeholder="AIzaSy..."
-                    type="password"
-                  />
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  Don't have a key? <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-primary underline">Get one here</a>.
-                </div>
-              </div>
-              <DialogFooter>
-                <Button onClick={() => saveApiKey(apiKey)}>Save Key</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <Link to="/ai-library">
+            <Button variant="ghost" size="sm" className="gap-2">
+              <BookOpen className="w-4 h-4" />
+              My Library
+            </Button>
+          </Link>
         </div>
 
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-accent/10 text-accent mb-4">
@@ -496,7 +404,6 @@ export default function AIHub() {
           </div>
         </div>
 
-        {/* Results Panel */}
         {/* Results Panel */}
         <div className={cn("animate-fade-in stagger-3", !result && "hidden lg:block")}>
           {result ? (
