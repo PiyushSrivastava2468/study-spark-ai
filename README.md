@@ -12,7 +12,7 @@ Study Spark AI combines artificial intelligence with powerful productivity tools
 | Feature | Description |
 |---------|------------|
 | **AI Chat Assistant** | Real-time conversational AI tutor — ask questions, get explanations, solve problems with full context memory |
-| **Smart Summaries** | Turn lengthy notes into concise, key-point summaries using Google Gemini AI |
+| **Smart Summaries** | Turn lengthy notes into concise, key-point summaries using Groq AI (Llama 3.3) |
 | **AI Flashcards** | Auto-generate interactive flashcards with flip animations from any study material |
 | **Quiz Generator** | Create auto-graded multiple-choice quizzes instantly from your notes |
 | **Important Questions** | Get AI-predicted likely exam questions for any topic |
@@ -48,7 +48,7 @@ Study Spark AI combines artificial intelligence with powerful productivity tools
 
 - **Frontend**: React 18, TypeScript, Vite
 - **UI**: Tailwind CSS, Shadcn/UI, Radix Primitives
-- **AI**: Google Gemini API (`gemini-1.5-flash`)
+- **AI**: Groq API (`llama-3.3-70b-versatile`, `llama-3.1-8b-instant`, `mixtral-8x7b-32768`)
 - **Backend**: Supabase (Auth, Database, Row-Level Security)
 - **Mobile**: Capacitor (Android)
 - **Charts**: Recharts
@@ -62,7 +62,7 @@ Study Spark AI combines artificial intelligence with powerful productivity tools
 ### Prerequisites
 - [Node.js](https://nodejs.org/) (v18+)
 - [npm](https://www.npmjs.com/) (v9+)
-- A [Google Gemini API Key](https://aistudio.google.com/app/apikey) (free)
+- A [Groq API Key](https://console.groq.com/) (free)
 - A [Supabase](https://supabase.com/) project (free tier)
 
 ### Setup
@@ -84,7 +84,7 @@ Study Spark AI combines artificial intelligence with powerful productivity tools
    ```
    Fill in your keys:
    ```env
-   VITE_GEMINI_API_KEY=your_gemini_api_key
+   VITE_GROQ_API_KEY=your_groq_api_key
    VITE_SUPABASE_URL=your_supabase_url
    VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
    ```
@@ -149,7 +149,7 @@ This project is licensed under the **MIT License** — see the [LICENSE](LICENSE
 
 ## 🙏 Acknowledgments
 
-- [Google Gemini](https://ai.google.dev/) — AI engine
+- [Groq](https://groq.com/) — Ultra-fast AI inference engine
 - [Supabase](https://supabase.com/) — Backend & Auth
 - [Shadcn/UI](https://ui.shadcn.com/) — UI components
 - [Lucide Icons](https://lucide.dev/) — Beautiful icons

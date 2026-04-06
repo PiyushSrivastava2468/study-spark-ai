@@ -8,35 +8,38 @@ export type AIFeatureId =
 
 const PROMPTS: Record<AIFeatureId, (text: string, difficulty: string) => string> = {
   summary: (text, difficulty) =>
-    `You are an expert tutor. Please provide a concise and clear summary of the following study material suitable for a ${difficulty} level student. Focus on the key concepts and main ideas.\n\nMaterial:\n${text}`,
+    `You are an expert tutor. Provide a concise and clear summary of the following study material suitable for a ${difficulty} level student. Focus on key concepts and main ideas.\n\nMaterial:\n${text}`,
 
   flashcards: (text, difficulty) =>
-    `You are a study aid generator. Create a set of 30-50 flashcards based on the following text for a ${difficulty} level student. Format the output as a JSON array of objects with "front" and "back" keys. Do not include markdown code blocks, just the raw JSON.\n\nMaterial:\n${text}`,
+    `You are a study aid generator. Create 30-50 flashcards based on the following text for a ${difficulty} level student. Format as a JSON array of objects with "front" and "back" keys. Return ONLY raw JSON, no markdown.\n\nMaterial:\n${text}`,
 
   quiz: (text, difficulty) =>
-    `Generate a multiple-choice quiz (30-50 questions) based on this text for a ${difficulty} level student. Format the output as a JSON array of objects with "question", "options" (array of strings), "correctAnswer" (index), and "explanation". Do not include markdown.\n\nMaterial:\n${text}`,
+    `Generate a multiple-choice quiz (30-50 questions) based on this text for a ${difficulty} level student. Format as a JSON array of objects with "question", "options" (array of strings), "correctAnswer" (index), and "explanation". Return ONLY raw JSON, no markdown.\n\nMaterial:\n${text}`,
 
   questions: (text, difficulty) =>
-    `Generate 10-15 important exam-style questions based on this text for a ${difficulty} level exam. Format the output as a JSON array of objects with "question", "options" (array of 4 strings), "correctAnswer" (index number), and "explanation" keys. Do not include markdown code blocks.\n\nMaterial:\n${text}`,
+    `Generate 10-15 important exam-style questions based on this text for a ${difficulty} level exam. Format as a JSON array of objects with "question", "options" (array of 4 strings), "correctAnswer" (index number), and "explanation" keys. Return ONLY raw JSON, no markdown.\n\nMaterial:\n${text}`,
 
   notes: (text, difficulty) =>
-    `Create comprehensive revision notes from this text for a ${difficulty} level student. Use clear headings, bullet points, and explain complex concepts in detail. Structure it logically for deep study. Do NOT use JSON.\n\nMaterial:\n${text}`,
+    `Create comprehensive revision notes from this text for a ${difficulty} level student. Use clear headings, bullet points, and explain complex concepts in detail. Structure it logically. Do NOT use JSON.\n\nMaterial:\n${text}`,
 
   quickrev: (text, difficulty) =>
-    `Create a high-yield "Cheat Sheet" for last-minute revision. Focus ONLY on: 1) Key Definitions, 2) Important Formulas/Dates, 3) Crucial Facts. Do NOT write full sentences or paragraphs. Use short bullet points or tables. Target level: ${difficulty}. Do NOT use JSON.\n\nMaterial:\n${text}`,
+    `Create a high-yield "Cheat Sheet" for last-minute revision. Focus ONLY on: 1) Key Definitions, 2) Important Formulas/Dates, 3) Crucial Facts. Use short bullet points or tables. Target level: ${difficulty}. Do NOT use JSON.\n\nMaterial:\n${text}`,
 };
 
-// Models to try in order (cost-effective first)
+// Groq models in priority order (fastest/cheapest first)
 const MODEL_PRIORITIES = [
-  "gpt-4o-mini",
-  "gpt-3.5-turbo",
-  "gpt-4o",
+  "llama-3.3-70b-versatile",
+  "llama-3.1-8b-instant",
+  "mixtral-8x7b-32768",
+  "gemma2-9b-it",
 ];
 
+const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
+
 function getApiKey(): string {
-  const key = import.meta.env.VITE_OPENAI_API_KEY || "";
+  const key = import.meta.env.VITE_GROQ_API_KEY || "";
   if (!key) {
-    console.error("Missing VITE_OPENAI_API_KEY in .env file!");
+    console.error("Missing VITE_GROQ_API_KEY in .env file!");
   }
   return key;
 }
@@ -47,19 +50,19 @@ interface ChatMessage {
 }
 
 /**
- * Call OpenAI Chat Completions API
+ * Call Groq Chat Completions API (OpenAI-compatible)
  */
-async function callOpenAI(
+async function callGroq(
   messages: ChatMessage[],
   model: string = MODEL_PRIORITIES[0],
-  maxTokens: number = 4096
+  maxTokens: number = 8192
 ): Promise<string> {
   const apiKey = getApiKey();
   if (!apiKey) {
-    throw new Error("OpenAI API key is not configured. Please add VITE_OPENAI_API_KEY to your .env file.");
+    throw new Error("Groq API key is not configured. Please add VITE_GROQ_API_KEY to your .env file.");
   }
 
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+  const response = await fetch(GROQ_API_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -77,26 +80,19 @@ async function callOpenAI(
     const errorData = await response.json().catch(() => ({}));
     const errorMessage = errorData?.error?.message || `HTTP ${response.status}`;
     const errorCode = errorData?.error?.code || "";
-    const errorType = errorData?.error?.type || "";
 
-    console.error(`OpenAI Error [${response.status}]:`, { errorMessage, errorCode, errorType });
+    console.error(`Groq Error [${response.status}]:`, { errorMessage, errorCode });
 
     // 401 = Invalid API key
     if (response.status === 401) {
-      throw new Error(`AUTH_ERROR: Invalid API key. Please check your VITE_OPENAI_API_KEY. Details: ${errorMessage}`);
+      throw new Error(`AUTH_ERROR: Invalid Groq API key. Details: ${errorMessage}`);
     }
 
-    // 429 = Could be rate limit OR insufficient quota
+    // 429 = Rate limit OR quota
     if (response.status === 429) {
-      // Insufficient quota = billing/credits issue (not a temporary rate limit)
-      if (errorCode === "insufficient_quota" || errorMessage.toLowerCase().includes("quota")) {
-        throw new Error(
-          `QUOTA_ERROR: Your OpenAI account has insufficient credits/quota. ` +
-          `Please add billing at https://platform.openai.com/account/billing. ` +
-          `Details: ${errorMessage}`
-        );
+      if (errorMessage.toLowerCase().includes("quota") || errorCode === "insufficient_quota") {
+        throw new Error(`QUOTA_ERROR: Groq quota exceeded. Details: ${errorMessage}`);
       }
-      // Actual rate limit (temporary)
       throw new Error(`RATE_LIMIT: ${errorMessage}`);
     }
 
@@ -105,12 +101,7 @@ async function callOpenAI(
       throw new Error(`MODEL_NOT_FOUND: ${errorMessage}`);
     }
 
-    // 403 = Forbidden (permissions issue)
-    if (response.status === 403) {
-      throw new Error(`PERMISSION_ERROR: Your API key doesn't have access to this model. Details: ${errorMessage}`);
-    }
-    
-    throw new Error(`OpenAI API Error (${response.status}): ${errorMessage}`);
+    throw new Error(`Groq API Error (${response.status}): ${errorMessage}`);
   }
 
   const data = await response.json();
@@ -132,7 +123,10 @@ export const generateStudyContent = async (
 
   const prompt = promptGenerator(content, difficulty);
   const messages: ChatMessage[] = [
-    { role: "system", content: "You are an expert academic tutor and study material creator. Provide high-quality, accurate content." },
+    {
+      role: "system",
+      content: "You are an expert academic tutor and study material creator. Provide high-quality, accurate content.",
+    },
     { role: "user", content: prompt },
   ];
 
@@ -140,17 +134,17 @@ export const generateStudyContent = async (
 
   for (const model of MODEL_PRIORITIES) {
     try {
-      console.log(`Trying model: ${model}`);
-      const result = await callOpenAI(messages, model);
+      console.log(`Trying Groq model: ${model}`);
+      const result = await callGroq(messages, model);
       console.log(`✓ Success with model: ${model}`);
       return result;
     } catch (error: any) {
       const msg = error.message || String(error);
       console.warn(`✗ ${model} failed:`, msg.substring(0, 200));
 
-      // Quota/Auth/Permission errors affect ALL models — stop immediately
-      if (msg.startsWith("QUOTA_ERROR:") || msg.startsWith("AUTH_ERROR:") || msg.startsWith("PERMISSION_ERROR:")) {
-        throw new Error(msg.replace(/^(QUOTA_ERROR|AUTH_ERROR|PERMISSION_ERROR):\s*/, ""));
+      // Quota/Auth errors affect ALL models — stop immediately with clear message
+      if (msg.startsWith("QUOTA_ERROR:") || msg.startsWith("AUTH_ERROR:")) {
+        throw new Error(msg.replace(/^(QUOTA_ERROR|AUTH_ERROR):\s*/, ""));
       }
 
       if (msg.startsWith("RATE_LIMIT:")) {
@@ -162,7 +156,7 @@ export const generateStudyContent = async (
         continue;
       }
 
-      // Non-recoverable error — don't try other models
+      // Non-recoverable — surface immediately
       throw error;
     }
   }
@@ -174,8 +168,7 @@ export const generateStudyContent = async (
 };
 
 /**
- * Chat with AI (for the AI Chat page)
- * Takes conversation history and returns AI response
+ * Chat with AI (used by AI Chat page)
  */
 export const chatWithAI = async (
   conversationHistory: { role: "user" | "assistant"; content: string }[],
@@ -185,7 +178,7 @@ export const chatWithAI = async (
     {
       role: "system",
       content:
-        "You are a helpful AI study assistant. You help students understand concepts, solve problems, create study plans, and answer academic questions. Be clear, concise, and encouraging. Use markdown formatting when helpful.",
+        "You are a helpful AI study assistant. Help students understand concepts, solve problems, create study plans, and answer academic questions. Be clear, concise, and encouraging. Use markdown formatting when helpful.",
     },
     ...conversationHistory.map((m) => ({
       role: m.role as "user" | "assistant",
@@ -198,17 +191,15 @@ export const chatWithAI = async (
 
   for (const model of MODEL_PRIORITIES) {
     try {
-      console.log(`AI Chat trying model: ${model}`);
-      const result = await callOpenAI(messages, model, 2048);
+      console.log(`AI Chat trying Groq model: ${model}`);
+      const result = await callGroq(messages, model, 4096);
       return result;
     } catch (error: any) {
       const msg = error.message || String(error);
 
-      // Quota/Auth/Permission errors affect ALL models — stop immediately
-      if (msg.startsWith("QUOTA_ERROR:") || msg.startsWith("AUTH_ERROR:") || msg.startsWith("PERMISSION_ERROR:")) {
-        throw new Error(msg.replace(/^(QUOTA_ERROR|AUTH_ERROR|PERMISSION_ERROR):\s*/, ""));
+      if (msg.startsWith("QUOTA_ERROR:") || msg.startsWith("AUTH_ERROR:")) {
+        throw new Error(msg.replace(/^(QUOTA_ERROR|AUTH_ERROR):\s*/, ""));
       }
-
       if (msg.startsWith("RATE_LIMIT:") || msg.startsWith("MODEL_NOT_FOUND:")) {
         errors.push(`${model}: ${msg}`);
         continue;
@@ -217,10 +208,7 @@ export const chatWithAI = async (
     }
   }
 
-  throw new Error(
-    "⏳ All AI models are currently rate-limited. Please wait a moment and try again."
-  );
+  throw new Error("⏳ All AI models are currently rate-limited. Please wait a moment and try again.");
 };
 
-// Keep for backward compatibility
 export { type AIFeatureId as default };
