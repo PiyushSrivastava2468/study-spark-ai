@@ -27,6 +27,7 @@ import Features from "@/pages/Features";
 import Lectures from "@/pages/Lectures";
 import NotFound from "@/pages/NotFound";
 import Login from "@/pages/Login";
+import { Analytics as VercelAnalytics } from '@vercel/analytics/react';
 
 const queryClient = new QueryClient();
 
@@ -81,6 +82,7 @@ const App = () => (
                 />
               </Routes>
             </BrowserRouter>
+            <VercelAnalytics />
           </TooltipProvider>
         </AppDataProvider>
       </ThemeProvider>
