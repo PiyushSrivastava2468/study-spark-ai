@@ -30,7 +30,7 @@ const PROMPTS: Record<AIFeatureId, (text: string, difficulty: string) => string>
 const MODEL_PRIORITIES = [
   "llama-3.3-70b-versatile",
   "llama-3.1-8b-instant",
-  "gemma2-9b-it",
+  "meta-llama/llama-4-scout-17b-16e-instruct",
 ];
 
 /**
@@ -114,6 +114,11 @@ async function callGroq(
 
     // 404 = Model not found
     if (response.status === 404) {
+      throw new Error(`MODEL_NOT_FOUND: ${errorMessage}`);
+    }
+
+    // 400 = Could be a decommissioned/unsupported model — treat as skippable
+    if (response.status === 400 && errorMessage.toLowerCase().includes("decommission")) {
       throw new Error(`MODEL_NOT_FOUND: ${errorMessage}`);
     }
 
