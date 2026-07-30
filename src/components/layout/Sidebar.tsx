@@ -17,9 +17,6 @@ import {
   FileText,
   Clock,
   MessageCircle,
-  BookOpen,
-  Star,
-  Video,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -37,9 +34,6 @@ const navItems = [
   { icon: Target, label: "Goals", path: "/goals" },
   { icon: BarChart3, label: "Analytics", path: "/analytics" },
   { icon: Clock, label: "History", path: "/history" },
-  { icon: Video, label: "Lectures", path: "/lectures" },
-  { icon: BookOpen, label: "Tutorials", path: "/tutorials" },
-  { icon: Star, label: "Features", path: "/features" },
 ];
 
 export function Sidebar() {

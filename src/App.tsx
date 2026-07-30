@@ -22,9 +22,7 @@ import Settings from "@/pages/Settings";
 import Notes from "@/pages/Notes";
 import History from "@/pages/History";
 import AIChat from "@/pages/AIChat";
-import Tutorials from "@/pages/Tutorials";
-import Features from "@/pages/Features";
-import Lectures from "@/pages/Lectures";
+
 import NotFound from "@/pages/NotFound";
 import Login from "@/pages/Login";
 import { Analytics as VercelAnalytics } from '@vercel/analytics/react';
@@ -71,9 +69,6 @@ const App = () => (
                           <Route path="/settings" element={<Settings />} />
                           <Route path="/history" element={<History />} />
                           <Route path="/ai-chat" element={<AIChat />} />
-                          <Route path="/tutorials" element={<Tutorials />} />
-                          <Route path="/features" element={<Features />} />
-                          <Route path="/lectures" element={<Lectures />} />
                           <Route path="*" element={<NotFound />} />
                         </Routes>
                       </Layout>

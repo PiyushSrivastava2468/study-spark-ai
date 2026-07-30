@@ -30,9 +30,25 @@ const PROMPTS: Record<AIFeatureId, (text: string, difficulty: string) => string>
 const MODEL_PRIORITIES = [
   "llama-3.3-70b-versatile",
   "llama-3.1-8b-instant",
-  "mixtral-8x7b-32768",
   "gemma2-9b-it",
 ];
+
+/**
+ * Approximate token count (1 token ≈ 4 chars).
+ * On the free tier, llama-3.3-70b is limited to 12,000 TPM.
+ * We cap input text to ~3,500 words (~4,700 tokens) so the
+ * prompt + system message + response stay comfortably below 12k.
+ */
+const MAX_INPUT_WORDS = 3500;
+
+function truncateText(text: string): string {
+  const words = text.trim().split(/\s+/);
+  if (words.length <= MAX_INPUT_WORDS) return text;
+  return (
+    words.slice(0, MAX_INPUT_WORDS).join(" ") +
+    "\n\n[Content truncated to fit AI token limits. Key material above preserved.]"
+  );
+}
 
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
@@ -101,6 +117,11 @@ async function callGroq(
       throw new Error(`MODEL_NOT_FOUND: ${errorMessage}`);
     }
 
+    // 413 = Request too large (too many tokens)
+    if (response.status === 413) {
+      throw new Error(`TOO_LARGE: ${errorMessage}`);
+    }
+
     throw new Error(`Groq API Error (${response.status}): ${errorMessage}`);
   }
 
@@ -121,7 +142,9 @@ export const generateStudyContent = async (
     throw new Error("Invalid feature selected");
   }
 
-  const prompt = promptGenerator(content, difficulty);
+  // Truncate input text before building the prompt
+  const safeContent = truncateText(content);
+  const prompt = promptGenerator(safeContent, difficulty);
   const messages: ChatMessage[] = [
     {
       role: "system",
@@ -147,8 +170,8 @@ export const generateStudyContent = async (
         throw new Error(msg.replace(/^(QUOTA_ERROR|AUTH_ERROR):\s*/, ""));
       }
 
-      if (msg.startsWith("RATE_LIMIT:")) {
-        errors.push(`${model}: rate limited`);
+      if (msg.startsWith("RATE_LIMIT:") || msg.startsWith("TOO_LARGE:")) {
+        errors.push(`${model}: ${msg.startsWith("TOO_LARGE:") ? "request too large" : "rate limited"}`);
         continue;
       }
       if (msg.startsWith("MODEL_NOT_FOUND:")) {
