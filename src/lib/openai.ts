@@ -11,13 +11,13 @@ const PROMPTS: Record<AIFeatureId, (text: string, difficulty: string) => string>
     `You are an expert tutor. Provide a concise and clear summary of the following study material suitable for a ${difficulty} level student. Focus on key concepts and main ideas.\n\nMaterial:\n${text}`,
 
   flashcards: (text, difficulty) =>
-    `You are a study aid generator. Create 30-50 flashcards based on the following text for a ${difficulty} level student. Format as a JSON array of objects with "front" and "back" keys. Return ONLY raw JSON, no markdown.\n\nMaterial:\n${text}`,
+    `You are a study aid generator. Create 15-20 flashcards based on the following text for a ${difficulty} level student. Format as a JSON array of objects with "front" and "back" keys. Return ONLY raw JSON, no markdown.\n\nMaterial:\n${text}`,
 
   quiz: (text, difficulty) =>
-    `Generate a multiple-choice quiz (30-50 questions) based on this text for a ${difficulty} level student. Format as a JSON array of objects with "question", "options" (array of strings), "correctAnswer" (index), and "explanation". Return ONLY raw JSON, no markdown.\n\nMaterial:\n${text}`,
+    `Generate a multiple-choice quiz (15-20 questions) based on this text for a ${difficulty} level student. Format as a JSON array of objects with "question", "options" (array of strings), "correctAnswer" (index), and "explanation". Return ONLY raw JSON, no markdown.\n\nMaterial:\n${text}`,
 
   questions: (text, difficulty) =>
-    `Generate 10-15 important exam-style questions based on this text for a ${difficulty} level exam. Format as a JSON array of objects with "question", "options" (array of 4 strings), "correctAnswer" (index number), and "explanation" keys. Return ONLY raw JSON, no markdown.\n\nMaterial:\n${text}`,
+    `Generate 8-10 important exam-style questions based on this text for a ${difficulty} level exam. Format as a JSON array of objects with "question", "options" (array of 4 strings), "correctAnswer" (index number), and "explanation" keys. Return ONLY raw JSON, no markdown.\n\nMaterial:\n${text}`,
 
   notes: (text, difficulty) =>
     `Create comprehensive revision notes from this text for a ${difficulty} level student. Use clear headings, bullet points, and explain complex concepts in detail. Structure it logically. Do NOT use JSON.\n\nMaterial:\n${text}`,
@@ -26,20 +26,19 @@ const PROMPTS: Record<AIFeatureId, (text: string, difficulty: string) => string>
     `Create a high-yield "Cheat Sheet" for last-minute revision. Focus ONLY on: 1) Key Definitions, 2) Important Formulas/Dates, 3) Crucial Facts. Use short bullet points or tables. Target level: ${difficulty}. Do NOT use JSON.\n\nMaterial:\n${text}`,
 };
 
-// Groq models in priority order (fastest/cheapest first)
+// Groq models in priority order
 const MODEL_PRIORITIES = [
   "llama-3.3-70b-versatile",
   "llama-3.1-8b-instant",
-  "meta-llama/llama-4-scout-17b-16e-instruct",
 ];
 
 /**
  * Approximate token count (1 token ≈ 4 chars).
- * On the free tier, llama-3.3-70b is limited to 12,000 TPM.
- * We cap input text to ~3,500 words (~4,700 tokens) so the
- * prompt + system message + response stay comfortably below 12k.
+ * Free-tier TPM limit: ~12k tokens total (input + output).
+ * We budget 3000 for output, leaving ~9000 for input+overhead.
+ * Capping at 800 words (~1,100 tokens) keeps total well under limit.
  */
-const MAX_INPUT_WORDS = 3500;
+const MAX_INPUT_WORDS = 800;
 
 function truncateText(text: string): string {
   const words = text.trim().split(/\s+/);
@@ -163,7 +162,7 @@ export const generateStudyContent = async (
   for (const model of MODEL_PRIORITIES) {
     try {
       console.log(`Trying Groq model: ${model}`);
-      const result = await callGroq(messages, model);
+      const result = await callGroq(messages, model, 3000);
       console.log(`✓ Success with model: ${model}`);
       return result;
     } catch (error: any) {
