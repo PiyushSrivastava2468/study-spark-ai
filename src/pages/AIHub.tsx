@@ -193,31 +193,31 @@ export default function AIHub() {
   };
 
   return (
-    <div className="p-8 max-w-6xl mx-auto">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
       {/* Header */}
-      <div className="text-center mb-10 animate-fade-in relative">
-        <div className="absolute top-0 right-0">
+      <div className="flex flex-col items-center text-center mb-6 sm:mb-10 animate-fade-in relative">
+        <div className="w-full flex justify-end mb-2 sm:absolute sm:top-0 sm:right-0 sm:mb-0">
           <Link to="/ai-library">
-            <Button variant="ghost" size="sm" className="gap-2">
+            <Button variant="ghost" size="sm" className="gap-2 rounded-xl text-xs sm:text-sm">
               <BookOpen className="w-4 h-4" />
               My Library
             </Button>
           </Link>
         </div>
 
-        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-accent/10 text-accent mb-4">
+        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-accent/10 text-accent mb-3 sm:mb-4">
           <Sparkles className="w-4 h-4" />
-          <span className="text-sm font-medium">AI-Powered</span>
+          <span className="text-xs sm:text-sm font-medium">AI-Powered</span>
         </div>
-        <h1 className="text-4xl font-display font-bold text-foreground mb-3">
+        <h1 className="text-2xl sm:text-4xl font-display font-bold text-foreground mb-2 sm:mb-3">
           AI Study Hub
         </h1>
-        <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+        <p className="text-sm sm:text-lg text-muted-foreground max-w-2xl mx-auto">
           Transform your study material into summaries, flashcards, quizzes, and more with the power of AI
         </p>
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
         {/* Input Section */}
         <div className="lg:col-span-2 space-y-6">
           {/* AI Features Grid */}

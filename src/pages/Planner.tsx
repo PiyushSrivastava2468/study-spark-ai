@@ -364,15 +364,16 @@ export default function Planner() {
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           handleEdit(block);
                         }}
                         className="p-1 rounded hover:bg-background/20"
+                        title="Edit block"
                       >
-                        <Edit2 className="w-3 h-3" />
+                        <Edit2 className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={(e) => {
@@ -380,8 +381,9 @@ export default function Planner() {
                           deleteBlock(block.id);
                         }}
                         className="p-1 rounded hover:bg-background/20"
+                        title="Delete block"
                       >
-                        <Trash2 className="w-3 h-3" />
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>

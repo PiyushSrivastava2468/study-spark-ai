@@ -101,19 +101,19 @@ export default function AIChat() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] max-w-4xl mx-auto">
+    <div className="flex flex-col h-[calc(100dvh-4rem)] sm:h-[calc(100vh-4rem)] max-w-4xl mx-auto">
       {/* Header */}
-      <div className="p-4 sm:p-6 border-b border-border shrink-0">
+      <div className="p-3 sm:p-6 border-b border-border shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-glow">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-glow shrink-0">
               <Bot className="w-5 h-5 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-xl sm:text-2xl font-display font-bold text-foreground">
+              <h1 className="text-lg sm:text-2xl font-display font-bold text-foreground">
                 AI Chat Assistant
               </h1>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-xs sm:text-sm text-muted-foreground">
                 Ask anything about your studies
               </p>
             </div>
@@ -123,9 +123,9 @@ export default function AIChat() {
               variant="outline"
               size="sm"
               onClick={clearChat}
-              className="text-destructive hover:text-destructive"
+              className="text-destructive hover:text-destructive text-xs sm:text-sm px-2.5 sm:px-3"
             >
-              <Trash2 className="w-4 h-4 mr-1" />
+              <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1" />
               Clear
             </Button>
           )}
@@ -133,20 +133,20 @@ export default function AIChat() {
       </div>
 
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 scrollbar-hide">
+      <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-4 scrollbar-hide">
         {messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-center py-20">
-            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center mb-6 animate-pulse">
-              <Sparkles className="w-10 h-10 text-primary/60" />
+          <div className="flex flex-col items-center justify-center h-full text-center py-12 sm:py-20 px-2">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center mb-4 sm:mb-6 animate-pulse">
+              <Sparkles className="w-8 h-8 sm:w-10 sm:h-10 text-primary/60" />
             </div>
-            <h2 className="text-2xl font-display font-bold text-foreground mb-3">
+            <h2 className="text-xl sm:text-2xl font-display font-bold text-foreground mb-2 sm:mb-3">
               How can I help you today?
             </h2>
-            <p className="text-muted-foreground max-w-md mb-8">
+            <p className="text-xs sm:text-sm text-muted-foreground max-w-md mb-6 sm:mb-8">
               I'm your AI study assistant. Ask me to explain concepts, solve problems,
               create study plans, or help with any academic topic.
             </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 max-w-lg w-full">
               {[
                 "Explain quantum physics in simple terms",
                 "Help me create a study plan for finals",
@@ -159,7 +159,7 @@ export default function AIChat() {
                     setInput(suggestion);
                     textareaRef.current?.focus();
                   }}
-                  className="p-3 rounded-xl border border-border bg-card hover:bg-secondary/50 text-sm text-left text-muted-foreground hover:text-foreground transition-all"
+                  className="p-3 rounded-xl border border-border bg-card hover:bg-secondary/50 text-xs sm:text-sm text-left text-muted-foreground hover:text-foreground transition-all"
                 >
                   {suggestion}
                 </button>
@@ -172,18 +172,18 @@ export default function AIChat() {
           <div
             key={message.id}
             className={cn(
-              "flex gap-3 animate-fade-in",
+              "flex gap-2.5 sm:gap-3 animate-fade-in",
               message.role === "user" ? "justify-end" : "justify-start"
             )}
           >
             {message.role === "assistant" && (
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center shrink-0 mt-1">
-                <Bot className="w-4 h-4 text-primary-foreground" />
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center shrink-0 mt-1">
+                <Bot className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary-foreground" />
               </div>
             )}
             <div
               className={cn(
-                "max-w-[80%] rounded-2xl px-4 py-3",
+                "max-w-[88%] sm:max-w-[80%] rounded-2xl px-3.5 py-2.5 sm:px-4 sm:py-3",
                 message.role === "user"
                   ? "bg-primary text-primary-foreground rounded-br-md"
                   : "bg-card border border-border rounded-bl-md"

@@ -165,19 +165,19 @@ export default function GPA() {
   const gpaProgress = (gpaNum / 4.0) * 100;
 
   return (
-    <div className="p-8 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
       {/* Header */}
-      <div className="text-center mb-10 animate-fade-in">
-        <h1 className="text-3xl font-display font-bold text-foreground mb-2">
+      <div className="text-center mb-6 sm:mb-10 animate-fade-in">
+        <h1 className="text-2xl sm:text-3xl font-display font-bold text-foreground mb-2">
           GPA Calculator
         </h1>
-        <p className="text-muted-foreground">
+        <p className="text-muted-foreground text-sm sm:text-base">
           Calculate and track your academic performance
         </p>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid md:grid-cols-3 gap-5 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5 mb-6 sm:mb-8">
         <div className="stat-card relative overflow-hidden animate-fade-in stagger-1">
           <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-primary/5" />
           <div className="relative z-10">
@@ -189,7 +189,7 @@ export default function GPA() {
             <h3 className="text-sm font-medium text-muted-foreground mb-1">
               Current GPA
             </h3>
-            <p className="text-4xl font-display font-bold text-foreground">{gpa}</p>
+            <p className="text-3xl sm:text-4xl font-display font-bold text-foreground">{gpa}</p>
             <div className="mt-3 h-2 bg-secondary rounded-full overflow-hidden">
               <div
                 className="h-full bg-gradient-to-r from-primary to-accent rounded-full transition-all duration-500"
@@ -217,10 +217,10 @@ export default function GPA() {
               step="0.1"
               min="0"
               max="4"
-              className="text-3xl font-display font-bold h-auto p-0 border-0 bg-transparent focus-visible:ring-0"
+              className="text-2xl sm:text-3xl font-display font-bold h-auto p-0 border-0 bg-transparent focus-visible:ring-0"
             />
             {courses.length > 0 && (
-              <p className="text-sm text-muted-foreground mt-2">
+              <p className="text-xs sm:text-sm text-muted-foreground mt-2">
                 {gpaNum >= targetNum ? (
                   <span className="text-emerald-500">On track! ✓</span>
                 ) : (
@@ -231,7 +231,7 @@ export default function GPA() {
               </p>
             )}
             {courses.length === 0 && (
-              <p className="text-sm text-muted-foreground mt-2">Add courses to see progress</p>
+              <p className="text-xs sm:text-sm text-muted-foreground mt-2">Add courses to see progress</p>
             )}
           </div>
         </div>
@@ -247,33 +247,33 @@ export default function GPA() {
             <h3 className="text-sm font-medium text-muted-foreground mb-1">
               Total Credits
             </h3>
-            <p className="text-4xl font-display font-bold text-foreground">
+            <p className="text-3xl sm:text-4xl font-display font-bold text-foreground">
               {totalCredits}
             </p>
-            <p className="text-sm text-muted-foreground mt-2">
+            <p className="text-xs sm:text-sm text-muted-foreground mt-2">
               {courses.length} courses
             </p>
           </div>
         </div>
       </div>
 
-      {/* Courses Table */}
-      <div className="glass-card rounded-2xl p-6 animate-fade-in stagger-4">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold text-foreground">Courses</h3>
-          <Button onClick={addCourse} variant="outline" className="rounded-xl">
-            <Plus className="w-4 h-4 mr-2" />
+      {/* Courses Table / Cards */}
+      <div className="glass-card rounded-2xl p-4 sm:p-6 animate-fade-in stagger-4">
+        <div className="flex items-center justify-between mb-4 sm:mb-6">
+          <h3 className="text-base sm:text-lg font-semibold text-foreground">Courses</h3>
+          <Button onClick={addCourse} variant="outline" className="rounded-xl size-sm sm:size-default">
+            <Plus className="w-4 h-4 mr-1 sm:mr-2" />
             Add Course
           </Button>
         </div>
 
         <div className="space-y-3">
-          {/* Header */}
-          <div className="grid grid-cols-12 gap-4 px-4 py-2 text-sm font-medium text-muted-foreground">
-            <div className="col-span-12 md:col-span-5">Course Name</div>
-            <div className="col-span-4 md:col-span-2 text-center">Credits</div>
-            <div className="col-span-5 md:col-span-3 text-center">Grade</div>
-            <div className="hidden md:block md:col-span-2 text-center">Points</div>
+          {/* Header - Desktop/Tablet */}
+          <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-2 text-sm font-medium text-muted-foreground">
+            <div className="col-span-5">Course Name</div>
+            <div className="col-span-2 text-center">Credits</div>
+            <div className="col-span-3 text-center">Grade</div>
+            <div className="col-span-2 text-center">Points</div>
           </div>
 
           {/* Courses */}
@@ -281,68 +281,78 @@ export default function GPA() {
             <div
               key={course.id}
               className={cn(
-                "grid grid-cols-12 gap-4 items-center p-4 rounded-xl bg-secondary/50 group animate-fade-in"
+                "p-3 sm:p-4 rounded-xl bg-secondary/50 group animate-fade-in flex flex-col md:grid md:grid-cols-12 gap-3 md:gap-4 md:items-center"
               )}
               style={{ animationDelay: `${index * 50}ms` }}
             >
-              <div className="col-span-12 md:col-span-5">
+              {/* Course Name */}
+              <div className="w-full md:col-span-5">
                 <Input
                   value={course.name}
                   onChange={(e) => updateCourse(course.id, "name", e.target.value)}
                   placeholder="Course name"
-                  className="bg-background input-focus"
+                  className="bg-background input-focus text-sm sm:text-base"
                 />
               </div>
-              <div className="col-span-4 md:col-span-2">
-                <Input
-                  type="number"
-                  value={course.credits}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value);
-                    updateCourse(course.id, "credits", isNaN(val) ? 1 : val);
-                  }}
-                  min={1}
-                  max={6}
-                  className="bg-background text-center input-focus"
-                />
-              </div>
-              <div className="col-span-5 md:col-span-3">
-                <Select
-                  value={course.grade}
-                  onValueChange={(value) => updateCourse(course.id, "grade", value)}
-                >
-                  <SelectTrigger className="bg-background">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {grades.map((grade) => (
-                      <SelectItem key={grade} value={grade}>
-                        {grade} ({gradePoints[grade].toFixed(1)})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="col-span-3 md:col-span-2 flex items-center justify-between">
-                <span className="hidden md:inline font-semibold text-foreground">
-                  {(gradePoints[course.grade] * course.credits).toFixed(1)}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => removeCourse(course.id)}
-                  className="opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity h-8 w-8 text-destructive hover:text-destructive"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
+
+              {/* Controls Row on Mobile */}
+              <div className="grid grid-cols-12 gap-2 md:contents items-center">
+                <div className="col-span-4 md:col-span-2">
+                  <span className="md:hidden text-[10px] text-muted-foreground block mb-0.5">Credits</span>
+                  <Input
+                    type="number"
+                    value={course.credits}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value);
+                      updateCourse(course.id, "credits", isNaN(val) ? 1 : val);
+                    }}
+                    min={1}
+                    max={6}
+                    className="bg-background text-center input-focus text-sm"
+                  />
+                </div>
+                <div className="col-span-5 md:col-span-3">
+                  <span className="md:hidden text-[10px] text-muted-foreground block mb-0.5">Grade</span>
+                  <Select
+                    value={course.grade}
+                    onValueChange={(value) => updateCourse(course.id, "grade", value)}
+                  >
+                    <SelectTrigger className="bg-background text-xs sm:text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {grades.map((grade) => (
+                        <SelectItem key={grade} value={grade}>
+                          {grade} ({gradePoints[grade].toFixed(1)})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="col-span-3 md:col-span-2 flex items-center justify-between pl-2 md:pl-0">
+                  <div className="text-center md:w-full">
+                    <span className="md:hidden text-[10px] text-muted-foreground block">Points</span>
+                    <span className="font-semibold text-xs sm:text-sm text-foreground">
+                      {(gradePoints[course.grade] * course.credits).toFixed(1)}
+                    </span>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => removeCourse(course.id)}
+                    className="opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity h-8 w-8 text-destructive hover:text-destructive flex-shrink-0"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
             </div>
           ))}
         </div>
 
         {courses.length === 0 && (
-          <div className="text-center py-10">
-            <p className="text-muted-foreground">
+          <div className="text-center py-8 sm:py-10">
+            <p className="text-muted-foreground text-sm">
               No courses added yet. Click "Add Course" to get started.
             </p>
           </div>
@@ -351,3 +361,4 @@ export default function GPA() {
     </div>
   );
 }
+

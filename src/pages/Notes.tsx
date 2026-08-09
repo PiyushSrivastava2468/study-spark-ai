@@ -250,7 +250,7 @@ export default function Notes() {
                 <span className="px-2 py-1 text-xs font-medium rounded-full bg-primary/10 text-primary">
                   {note.category}
                 </span>
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                   <Button
                     variant="ghost"
                     size="icon"

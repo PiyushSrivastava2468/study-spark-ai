@@ -1,19 +1,50 @@
 import * as React from "react";
 
 const MOBILE_BREAKPOINT = 768;
+const TABLET_BREAKPOINT = 1024;
 
-export function useIsMobile() {
-  const [isMobile, setIsMobile] = React.useState<boolean | undefined>(undefined);
+export type ScreenType = "phone" | "tablet" | "desktop";
+
+export function useScreenSize() {
+  const [screenType, setScreenType] = React.useState<ScreenType>("desktop");
 
   React.useEffect(() => {
-    const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
-    const onChange = () => {
-      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
+    const handleResize = () => {
+      const width = window.innerWidth;
+      if (width < MOBILE_BREAKPOINT) {
+        setScreenType("phone");
+      } else if (width < TABLET_BREAKPOINT) {
+        setScreenType("tablet");
+      } else {
+        setScreenType("desktop");
+      }
     };
-    mql.addEventListener("change", onChange);
-    setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
-    return () => mql.removeEventListener("change", onChange);
+
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  return !!isMobile;
+  return {
+    screenType,
+    isMobile: screenType === "phone",
+    isTablet: screenType === "tablet",
+    isDesktop: screenType === "desktop",
+  };
 }
+
+export function useIsMobile() {
+  const { isMobile } = useScreenSize();
+  return isMobile;
+}
+
+export function useIsTablet() {
+  const { isTablet } = useScreenSize();
+  return isTablet;
+}
+
+export function useIsDesktop() {
+  const { isDesktop } = useScreenSize();
+  return isDesktop;
+}
+

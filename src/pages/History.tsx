@@ -57,19 +57,19 @@ export default function History() {
   };
 
   return (
-    <div className="p-4 sm:p-8 max-w-4xl mx-auto pb-20">
-      <div className="flex items-center justify-between mb-8 animate-fade-in">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto pb-20">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 sm:mb-8 animate-fade-in">
         <div>
-          <h1 className="text-3xl font-display font-bold text-foreground mb-2">
+          <h1 className="text-2xl sm:text-3xl font-display font-bold text-foreground mb-1 sm:mb-2">
             Activity History
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground text-sm sm:text-base">
             {activities.length} activities recorded
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           <Select value={filter} onValueChange={setFilter}>
-            <SelectTrigger className="w-[140px]">
+            <SelectTrigger className="w-[140px] rounded-xl">
               <Filter className="w-4 h-4 mr-2" />
               <SelectValue />
             </SelectTrigger>

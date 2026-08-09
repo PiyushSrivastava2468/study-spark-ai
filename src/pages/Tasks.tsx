@@ -159,13 +159,13 @@ export default function Tasks() {
         </Dialog>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-6">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input placeholder="Search tasks..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
         </div>
         <Select value={filter} onValueChange={setFilter}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-full sm:w-[180px]">
             <Filter className="w-4 h-4 mr-2" />
             <SelectValue placeholder="Filter" />
           </SelectTrigger>
@@ -181,25 +181,25 @@ export default function Tasks() {
       </div>
 
       <div className="space-y-3">
-        {filteredTasks.map((task, index) => (
-          <div key={task.id} className={cn("glass-card rounded-2xl p-5 transition-all duration-200 group", task.completed && "opacity-60")}>
-            <div className="flex items-start gap-4">
+        {filteredTasks.map((task) => (
+          <div key={task.id} className={cn("glass-card rounded-2xl p-4 sm:p-5 transition-all duration-200 group", task.completed && "opacity-60")}>
+            <div className="flex items-start gap-3 sm:gap-4">
               <button onClick={() => toggleTask(task.id)} className={cn("w-6 h-6 rounded-lg border-2 flex items-center justify-center flex-shrink-0 mt-0.5 transition-all", task.completed ? "bg-primary border-primary" : "border-muted-foreground/30 hover:border-primary")}>
                 {task.completed && <Check className="w-4 h-4 text-primary-foreground" />}
               </button>
               <div className="flex-1 min-w-0">
                 <h3 className={cn("font-semibold text-foreground mb-1", task.completed && "line-through text-muted-foreground")}>{task.title}</h3>
-                {task.description && <p className="text-sm text-muted-foreground mb-2">{task.description}</p>}
-                <div className="flex items-center gap-3 flex-wrap">
-                  <span className="text-xs px-3 py-1 rounded-full bg-secondary text-secondary-foreground">{task.subject}</span>
-                  <span className={cn("text-xs px-3 py-1 rounded-full border", priorityColors[task.priority])}>{task.priority}</span>
+                {task.description && <p className="text-sm text-muted-foreground mb-2 line-clamp-2 sm:line-clamp-none">{task.description}</p>}
+                <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                  <span className="text-xs px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full bg-secondary text-secondary-foreground">{task.subject}</span>
+                  <span className={cn("text-xs px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full border", priorityColors[task.priority])}>{task.priority}</span>
                   <span className="flex items-center gap-1 text-xs text-muted-foreground">
                     <Clock className="w-3 h-3" />
                     {new Date(task.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                   </span>
                 </div>
               </div>
-              <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                 <Button variant="ghost" size="icon" className="rounded-full h-8 w-8" onClick={() => handleEdit(task)}><Edit2 className="w-4 h-4" /></Button>
                 <Button variant="ghost" size="icon" className="rounded-full h-8 w-8 text-destructive hover:text-destructive" onClick={() => deleteTask(task.id)}><Trash2 className="w-4 h-4" /></Button>
               </div>

@@ -52,33 +52,33 @@ export default function Analytics() {
 
   if (!hasData) {
     return (
-      <div className="p-8 max-w-6xl mx-auto">
-        <div className="mb-8 animate-fade-in">
-          <h1 className="text-3xl font-display font-bold text-foreground mb-2">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
+        <div className="mb-6 sm:mb-8 animate-fade-in">
+          <h1 className="text-2xl sm:text-3xl font-display font-bold text-foreground mb-2">
             Analytics
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground text-sm sm:text-base">
             Track your study patterns and productivity
           </p>
         </div>
 
-        <div className="glass-card rounded-2xl p-12 text-center animate-fade-in">
-          <div className="w-20 h-20 rounded-full bg-secondary flex items-center justify-center mx-auto mb-6">
-            <BarChart3 className="w-10 h-10 text-muted-foreground" />
+        <div className="glass-card rounded-2xl p-6 sm:p-12 text-center animate-fade-in">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-secondary flex items-center justify-center mx-auto mb-4 sm:mb-6">
+            <BarChart3 className="w-8 h-8 sm:w-10 sm:h-10 text-muted-foreground" />
           </div>
-          <h2 className="text-xl font-semibold text-foreground mb-2">No Data Yet</h2>
-          <p className="text-muted-foreground max-w-md mx-auto mb-8">
+          <h2 className="text-lg sm:text-xl font-semibold text-foreground mb-2">No Data Yet</h2>
+          <p className="text-muted-foreground text-sm sm:text-base max-w-md mx-auto mb-6 sm:mb-8">
             Start using the app to generate analytics. Complete tasks, use the focus timer, and set goals to see your progress here.
           </p>
-          <div className="flex justify-center gap-4">
+          <div className="flex flex-wrap justify-center gap-3 sm:gap-4">
             <Link to="/focus">
-              <Button className="gap-2">
+              <Button className="gap-2 rounded-xl">
                 <Clock className="w-4 h-4" />
                 Start Focus Session
               </Button>
             </Link>
             <Link to="/tasks">
-              <Button variant="outline" className="gap-2">
+              <Button variant="outline" className="gap-2 rounded-xl">
                 <Target className="w-4 h-4" />
                 Add Tasks
               </Button>
@@ -90,19 +90,19 @@ export default function Analytics() {
   }
 
   return (
-    <div className="p-8 max-w-6xl mx-auto">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
       {/* Header */}
-      <div className="mb-8 animate-fade-in">
-        <h1 className="text-3xl font-display font-bold text-foreground mb-2">
+      <div className="mb-6 sm:mb-8 animate-fade-in">
+        <h1 className="text-2xl sm:text-3xl font-display font-bold text-foreground mb-2">
           Analytics
         </h1>
-        <p className="text-muted-foreground">
+        <p className="text-muted-foreground text-sm sm:text-base">
           Track your study patterns and productivity
         </p>
       </div>
 
       {/* Quick Stats */}
-      <div className="grid md:grid-cols-4 gap-5 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5 mb-6 sm:mb-8">
         {[
           { label: "Total Focus Hours", value: `${totalFocusHours}h`, icon: Clock, change: "All time", color: "primary" },
           { label: "Total Sessions", value: `${totalSessions}`, icon: Target, change: "All time", color: "accent" },
