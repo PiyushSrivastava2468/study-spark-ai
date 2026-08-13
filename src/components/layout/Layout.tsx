@@ -19,11 +19,19 @@ function LayoutContent({ children }: LayoutProps) {
         className={cn(
           "min-h-screen overflow-x-hidden transition-all duration-300",
           isMobile
-            ? "pt-16 pb-20 w-full"
+            ? "w-full"
             : collapsed
             ? "ml-20 w-[calc(100%-5rem)]"
             : "ml-64 w-[calc(100%-16rem)]"
         )}
+        style={
+          isMobile
+            ? {
+                paddingTop: "calc(3.5rem + env(safe-area-inset-top, 0px))",
+                paddingBottom: "calc(4rem + env(safe-area-inset-bottom, 0px))",
+              }
+            : undefined
+        }
       >
         {children}
       </main>

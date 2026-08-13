@@ -53,7 +53,13 @@ export function Sidebar() {
     <>
       {/* Mobile Top Header */}
       {isMobile && (
-        <header className="fixed top-0 left-0 right-0 h-16 bg-sidebar/95 backdrop-blur-md border-b border-sidebar-border flex items-center justify-between px-4 z-50">
+        <header
+          className="fixed top-0 left-0 right-0 bg-sidebar/95 backdrop-blur-md border-b border-sidebar-border flex items-center justify-between px-4 z-50"
+          style={{
+            paddingTop: "env(safe-area-inset-top, 0px)",
+            height: "calc(3.5rem + env(safe-area-inset-top, 0px))",
+          }}
+        >
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-glow">
               <Sparkles className="w-4 h-4 text-primary-foreground" />
@@ -86,17 +92,25 @@ export function Sidebar() {
       {/* Sidebar (Desktop / Tablet / Mobile Drawer) */}
       <aside
         className={cn(
-          "fixed top-0 h-screen bg-sidebar border-r border-sidebar-border flex flex-col transition-all duration-300 z-50",
+          "fixed bg-sidebar border-r border-sidebar-border flex flex-col transition-all duration-300 z-50",
           isMobile
             ? cn(
-                "left-0 w-72 top-16 h-[calc(100vh-4rem)] pb-16",
+                "left-0 w-72",
                 mobileOpen ? "translate-x-0" : "-translate-x-full"
               )
             : cn(
-                "left-0",
+                "top-0 left-0 h-screen",
                 collapsed ? "w-20" : "w-64"
               )
         )}
+        style={
+          isMobile
+            ? {
+                top: "calc(3.5rem + env(safe-area-inset-top, 0px))",
+                height: "calc(100dvh - 3.5rem - env(safe-area-inset-top, 0px) - 4rem - env(safe-area-inset-bottom, 0px))",
+              }
+            : undefined
+        }
       >
         {/* Logo - Desktop/Tablet */}
         {!isMobile && (
@@ -186,7 +200,13 @@ export function Sidebar() {
 
       {/* Mobile Bottom Quick Navigation Bar */}
       {isMobile && (
-        <nav className="fixed bottom-0 left-0 right-0 h-16 bg-sidebar/95 backdrop-blur-md border-t border-sidebar-border flex items-center justify-around px-2 z-40">
+        <nav
+          className="fixed bottom-0 left-0 right-0 bg-sidebar/95 backdrop-blur-md border-t border-sidebar-border flex items-center justify-around px-2 z-40"
+          style={{
+            paddingBottom: "env(safe-area-inset-bottom, 0px)",
+            height: "calc(4rem + env(safe-area-inset-bottom, 0px))",
+          }}
+        >
           {mobileQuickNav.map((item) => {
             const isActive = location.pathname === item.path;
             const Icon = item.icon;

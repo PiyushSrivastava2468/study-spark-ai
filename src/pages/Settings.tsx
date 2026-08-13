@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useNotificationSettings } from "@/hooks/useNotificationSettings";
 import { useState } from "react";
+import { useScreenSize } from "@/hooks/use-mobile";
 
 const settingsSections = [
   { id: "profile", label: "Profile", icon: User },
@@ -20,11 +21,15 @@ export default function Settings() {
   const [activeSection, setActiveSection] = useState("profile");
   const { theme, toggleTheme } = useTheme();
   const { settings, updateSetting } = useNotificationSettings();
+  const { isMobile, isTablet } = useScreenSize();
+
+  const isDesktop = !isMobile && !isTablet;
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
+      {/* Page Header */}
       <div className="mb-6 sm:mb-8 animate-fade-in">
-        <h1 className="text-2xl sm:text-3xl font-display font-bold text-foreground mb-2">
+        <h1 className="text-2xl sm:text-3xl font-display font-bold text-foreground mb-1">
           Settings
         </h1>
         <p className="text-muted-foreground text-sm sm:text-base">
@@ -32,10 +37,13 @@ export default function Settings() {
         </p>
       </div>
 
-      <div className="grid lg:grid-cols-4 gap-4 sm:gap-6">
-        {/* Sidebar - Horizontal on mobile */}
-        <div className="lg:col-span-1">
-          <nav className="flex lg:flex-col gap-1 overflow-x-auto pb-2 lg:pb-0 scrollbar-hide animate-fade-in stagger-1" style={{ opacity: 0 }}>
+      {/* Layout: side nav on tablet/desktop, top tabs on mobile */}
+      <div className={cn("gap-4 sm:gap-6", isDesktop || isTablet ? "grid grid-cols-4" : "flex flex-col")}>
+
+        {/* ── Section Nav ── */}
+        {/* Mobile: horizontal scrollable pill tabs */}
+        {isMobile && (
+          <nav className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide -mx-1 px-1 animate-fade-in">
             {settingsSections.map((section) => {
               const Icon = section.icon;
               return (
@@ -43,31 +51,85 @@ export default function Settings() {
                   key={section.id}
                   onClick={() => setActiveSection(section.id)}
                   className={cn(
-                    "flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-3 rounded-xl text-left transition-all whitespace-nowrap flex-shrink-0",
+                    "flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium whitespace-nowrap flex-shrink-0 transition-all",
                     activeSection === section.id
-                      ? "bg-primary/10 text-primary font-medium"
-                      : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                      ? "bg-primary text-primary-foreground shadow-glow"
+                      : "bg-secondary text-muted-foreground hover:text-foreground"
                   )}
                 >
-                  <Icon className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
-                  <span className="text-sm sm:text-base">{section.label}</span>
+                  <Icon className="w-4 h-4 flex-shrink-0" />
+                  <span>{section.label}</span>
                 </button>
               );
             })}
           </nav>
-        </div>
+        )}
 
-        {/* Content */}
-        <div className="lg:col-span-3">
+        {/* Tablet: 2-col icon+label sidebar */}
+        {isTablet && (
+          <div className="col-span-1">
+            <nav className="flex flex-col gap-1 animate-fade-in stagger-1" style={{ opacity: 0 }}>
+              {settingsSections.map((section) => {
+                const Icon = section.icon;
+                return (
+                  <button
+                    key={section.id}
+                    onClick={() => setActiveSection(section.id)}
+                    className={cn(
+                      "flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all",
+                      activeSection === section.id
+                        ? "bg-primary/10 text-primary font-semibold"
+                        : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                    )}
+                  >
+                    <Icon className="w-4 h-4 flex-shrink-0" />
+                    <span className="text-sm">{section.label}</span>
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
+        )}
+
+        {/* Desktop: full label sidebar */}
+        {isDesktop && (
+          <div className="col-span-1">
+            <nav className="flex flex-col gap-1 animate-fade-in stagger-1" style={{ opacity: 0 }}>
+              {settingsSections.map((section) => {
+                const Icon = section.icon;
+                return (
+                  <button
+                    key={section.id}
+                    onClick={() => setActiveSection(section.id)}
+                    className={cn(
+                      "flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all",
+                      activeSection === section.id
+                        ? "bg-primary/10 text-primary font-semibold"
+                        : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                    )}
+                  >
+                    <Icon className="w-5 h-5 flex-shrink-0" />
+                    <span className="text-base">{section.label}</span>
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
+        )}
+
+        {/* ── Content Panel ── */}
+        <div className={cn(isDesktop || isTablet ? "col-span-3" : "")}>
           <div className="glass-card rounded-2xl p-4 sm:p-6 animate-fade-in stagger-2" style={{ opacity: 0 }}>
+
+            {/* Profile */}
             {activeSection === "profile" && (
-              <div className="space-y-4 sm:space-y-6">
+              <div className="space-y-5">
                 <h2 className="text-lg sm:text-xl font-semibold text-foreground">Profile Settings</h2>
-                <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
+                <div className={cn("flex gap-4 sm:gap-6", isMobile ? "flex-col items-center text-center" : "flex-row items-center")}>
                   <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-xl sm:text-2xl font-bold text-primary-foreground flex-shrink-0">
                     S
                   </div>
-                  <div className="text-center sm:text-left">
+                  <div className={isMobile ? "text-center" : "text-left"}>
                     <h3 className="font-semibold text-foreground">Student Name</h3>
                     <p className="text-sm text-muted-foreground">student@university.edu</p>
                     <Button variant="outline" size="sm" className="mt-2 rounded-xl">
@@ -75,13 +137,13 @@ export default function Settings() {
                     </Button>
                   </div>
                 </div>
-                <div className="grid sm:grid-cols-2 gap-4">
+                <div className={cn("grid gap-4", isMobile ? "grid-cols-1" : "grid-cols-2")}>
                   <div>
                     <label className="text-sm font-medium text-foreground">Full Name</label>
                     <input
                       type="text"
                       defaultValue="Student Name"
-                      className="w-full mt-1 px-4 py-2 rounded-xl bg-secondary border border-border input-focus text-foreground"
+                      className="w-full mt-1 px-4 py-2.5 rounded-xl bg-secondary border border-border input-focus text-foreground"
                     />
                   </div>
                   <div>
@@ -89,22 +151,31 @@ export default function Settings() {
                     <input
                       type="email"
                       defaultValue="student@university.edu"
-                      className="w-full mt-1 px-4 py-2 rounded-xl bg-secondary border border-border input-focus text-foreground"
+                      className="w-full mt-1 px-4 py-2.5 rounded-xl bg-secondary border border-border input-focus text-foreground"
                     />
                   </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-foreground">University</label>
+                  <input
+                    type="text"
+                    defaultValue="State University"
+                    className="w-full mt-1 px-4 py-2.5 rounded-xl bg-secondary border border-border input-focus text-foreground"
+                  />
                 </div>
                 <Button className="btn-gradient rounded-xl w-full sm:w-auto">Save Changes</Button>
               </div>
             )}
 
+            {/* Notifications */}
             {activeSection === "notifications" && (
-              <div className="space-y-4 sm:space-y-6">
+              <div className="space-y-5">
                 <h2 className="text-lg sm:text-xl font-semibold text-foreground">Notification Preferences</h2>
-                <div className="space-y-3 sm:space-y-4">
+                <div className="space-y-3">
                   {/* Study Reminders */}
-                  <div className="p-3 sm:p-4 rounded-xl bg-secondary/50 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div>
+                  <div className="p-4 rounded-xl bg-secondary/50 space-y-3">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="min-w-0">
                         <p className="font-medium text-foreground text-sm sm:text-base">Study Reminders</p>
                         <p className="text-xs sm:text-sm text-muted-foreground">Get reminded to start your study sessions</p>
                       </div>
@@ -114,7 +185,7 @@ export default function Settings() {
                       />
                     </div>
                     {settings.studyReminders && (
-                      <div className="flex items-center gap-2 pt-2 border-t border-border">
+                      <div className="flex items-center gap-2 pt-2 border-t border-border flex-wrap">
                         <span className="text-sm text-muted-foreground">Remind at:</span>
                         <Input
                           type="time"
@@ -127,8 +198,8 @@ export default function Settings() {
                   </div>
 
                   {/* Break Alerts */}
-                  <div className="flex items-center justify-between p-3 sm:p-4 rounded-xl bg-secondary/50">
-                    <div>
+                  <div className="flex items-center justify-between gap-4 p-4 rounded-xl bg-secondary/50">
+                    <div className="min-w-0">
                       <p className="font-medium text-foreground text-sm sm:text-base">Break Alerts</p>
                       <p className="text-xs sm:text-sm text-muted-foreground">Notifications when it's time for a break</p>
                     </div>
@@ -139,9 +210,9 @@ export default function Settings() {
                   </div>
 
                   {/* Deadline Warnings */}
-                  <div className="p-3 sm:p-4 rounded-xl bg-secondary/50 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div>
+                  <div className="p-4 rounded-xl bg-secondary/50 space-y-3">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="min-w-0">
                         <p className="font-medium text-foreground text-sm sm:text-base">Deadline Warnings</p>
                         <p className="text-xs sm:text-sm text-muted-foreground">Alerts for upcoming assignment deadlines</p>
                       </div>
@@ -151,7 +222,7 @@ export default function Settings() {
                       />
                     </div>
                     {settings.deadlineWarnings && (
-                      <div className="flex items-center gap-2 pt-2 border-t border-border">
+                      <div className="flex items-center gap-2 pt-2 border-t border-border flex-wrap">
                         <span className="text-sm text-muted-foreground">Warn</span>
                         <select
                           value={settings.deadlineWarningDays}
@@ -169,8 +240,8 @@ export default function Settings() {
                   </div>
 
                   {/* Weekly Reports */}
-                  <div className="flex items-center justify-between p-3 sm:p-4 rounded-xl bg-secondary/50">
-                    <div>
+                  <div className="flex items-center justify-between gap-4 p-4 rounded-xl bg-secondary/50">
+                    <div className="min-w-0">
                       <p className="font-medium text-foreground text-sm sm:text-base">Weekly Reports</p>
                       <p className="text-xs sm:text-sm text-muted-foreground">Receive weekly study analytics summary</p>
                     </div>
@@ -183,13 +254,14 @@ export default function Settings() {
               </div>
             )}
 
+            {/* Appearance */}
             {activeSection === "appearance" && (
-              <div className="space-y-4 sm:space-y-6">
+              <div className="space-y-5">
                 <h2 className="text-lg sm:text-xl font-semibold text-foreground">Appearance</h2>
-                <div className="space-y-3 sm:space-y-4">
-                  <div className="flex items-center justify-between p-3 sm:p-4 rounded-xl bg-secondary/50">
-                    <div className="flex items-center gap-3">
-                      {theme === "dark" ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-4 p-4 rounded-xl bg-secondary/50">
+                    <div className="flex items-center gap-3 min-w-0">
+                      {theme === "dark" ? <Moon className="w-5 h-5 flex-shrink-0" /> : <Sun className="w-5 h-5 flex-shrink-0" />}
                       <div>
                         <p className="font-medium text-foreground text-sm sm:text-base">Dark Mode</p>
                         <p className="text-xs sm:text-sm text-muted-foreground">Toggle between light and dark themes</p>
@@ -197,18 +269,43 @@ export default function Settings() {
                     </div>
                     <Switch checked={theme === "dark"} onCheckedChange={toggleTheme} />
                   </div>
-                  <div className="p-3 sm:p-4 rounded-xl bg-secondary/50">
+                  <div className="p-4 rounded-xl bg-secondary/50">
                     <p className="font-medium text-foreground mb-3 text-sm sm:text-base">Accent Color</p>
                     <div className="flex flex-wrap gap-3">
-                      {["bg-cyan-500", "bg-violet-500", "bg-emerald-500", "bg-orange-500", "bg-pink-500"].map((color) => (
+                      {[
+                        { cls: "bg-cyan-500", label: "Cyan" },
+                        { cls: "bg-violet-500", label: "Violet" },
+                        { cls: "bg-emerald-500", label: "Emerald" },
+                        { cls: "bg-orange-500", label: "Orange" },
+                        { cls: "bg-pink-500", label: "Pink" },
+                      ].map(({ cls, label }) => (
                         <button
-                          key={color}
+                          key={cls}
+                          title={label}
                           className={cn(
-                            "w-8 h-8 rounded-full transition-transform hover:scale-110",
-                            color,
-                            color === "bg-cyan-500" && "ring-2 ring-offset-2 ring-offset-background ring-primary"
+                            "w-9 h-9 rounded-full transition-transform hover:scale-110 active:scale-95",
+                            cls,
+                            cls === "bg-cyan-500" && "ring-2 ring-offset-2 ring-offset-background ring-primary"
                           )}
                         />
+                      ))}
+                    </div>
+                  </div>
+                  <div className="p-4 rounded-xl bg-secondary/50">
+                    <p className="font-medium text-foreground mb-3 text-sm sm:text-base">Font Size</p>
+                    <div className="flex gap-2 flex-wrap">
+                      {["Small", "Medium", "Large"].map((size) => (
+                        <button
+                          key={size}
+                          className={cn(
+                            "px-4 py-2 rounded-xl text-sm font-medium transition-all",
+                            size === "Medium"
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-background border border-border text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          {size}
+                        </button>
                       ))}
                     </div>
                   </div>
@@ -216,73 +313,110 @@ export default function Settings() {
               </div>
             )}
 
+            {/* Focus Settings */}
             {activeSection === "focus" && (
-              <div className="space-y-4 sm:space-y-6">
+              <div className="space-y-5">
                 <h2 className="text-lg sm:text-xl font-semibold text-foreground">Focus Settings</h2>
-                <div className="grid sm:grid-cols-2 gap-4">
-                  <div className="p-3 sm:p-4 rounded-xl bg-secondary/50">
+                <div className={cn("grid gap-4", isMobile ? "grid-cols-1" : "grid-cols-2")}>
+                  <div className="p-4 rounded-xl bg-secondary/50">
                     <label className="text-sm font-medium text-foreground">Pomodoro Duration</label>
-                    <select className="w-full mt-2 px-4 py-2 rounded-xl bg-background border border-border text-foreground">
+                    <select className="w-full mt-2 px-4 py-2.5 rounded-xl bg-background border border-border text-foreground">
                       <option>25 minutes</option>
                       <option>30 minutes</option>
                       <option>45 minutes</option>
                       <option>50 minutes</option>
                     </select>
                   </div>
-                  <div className="p-3 sm:p-4 rounded-xl bg-secondary/50">
+                  <div className="p-4 rounded-xl bg-secondary/50">
                     <label className="text-sm font-medium text-foreground">Short Break</label>
-                    <select className="w-full mt-2 px-4 py-2 rounded-xl bg-background border border-border text-foreground">
+                    <select className="w-full mt-2 px-4 py-2.5 rounded-xl bg-background border border-border text-foreground">
                       <option>5 minutes</option>
                       <option>10 minutes</option>
                       <option>15 minutes</option>
                     </select>
                   </div>
+                  <div className="p-4 rounded-xl bg-secondary/50">
+                    <label className="text-sm font-medium text-foreground">Long Break</label>
+                    <select className="w-full mt-2 px-4 py-2.5 rounded-xl bg-background border border-border text-foreground">
+                      <option>15 minutes</option>
+                      <option>20 minutes</option>
+                      <option>30 minutes</option>
+                    </select>
+                  </div>
+                  <div className="p-4 rounded-xl bg-secondary/50">
+                    <label className="text-sm font-medium text-foreground">Sessions Before Long Break</label>
+                    <select className="w-full mt-2 px-4 py-2.5 rounded-xl bg-background border border-border text-foreground">
+                      <option>3</option>
+                      <option>4</option>
+                      <option>5</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between gap-4 p-4 rounded-xl bg-secondary/50">
+                  <div>
+                    <p className="font-medium text-foreground text-sm sm:text-base">Auto-start Breaks</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">Automatically start break timer when session ends</p>
+                  </div>
+                  <Switch defaultChecked />
                 </div>
               </div>
             )}
 
+            {/* Privacy */}
             {activeSection === "privacy" && (
-              <div className="space-y-4 sm:space-y-6">
+              <div className="space-y-5">
                 <h2 className="text-lg sm:text-xl font-semibold text-foreground">Privacy Settings</h2>
-                <div className="space-y-3 sm:space-y-4">
-                  <div className="flex items-center justify-between p-3 sm:p-4 rounded-xl bg-secondary/50">
-                    <div>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-4 p-4 rounded-xl bg-secondary/50">
+                    <div className="min-w-0">
                       <p className="font-medium text-foreground text-sm sm:text-base">AI Data Collection</p>
                       <p className="text-xs sm:text-sm text-muted-foreground">Allow AI to learn from your study patterns</p>
                     </div>
                     <Switch defaultChecked />
                   </div>
-                  <div className="flex items-center justify-between p-3 sm:p-4 rounded-xl bg-secondary/50">
-                    <div>
+                  <div className="flex items-center justify-between gap-4 p-4 rounded-xl bg-secondary/50">
+                    <div className="min-w-0">
                       <p className="font-medium text-foreground text-sm sm:text-base">Private Notes</p>
                       <p className="text-xs sm:text-sm text-muted-foreground">Keep all notes private by default</p>
                     </div>
                     <Switch defaultChecked />
                   </div>
+                  <div className="flex items-center justify-between gap-4 p-4 rounded-xl bg-secondary/50">
+                    <div className="min-w-0">
+                      <p className="font-medium text-foreground text-sm sm:text-base">Analytics Sharing</p>
+                      <p className="text-xs sm:text-sm text-muted-foreground">Share anonymous usage data to improve the app</p>
+                    </div>
+                    <Switch />
+                  </div>
                 </div>
               </div>
             )}
 
+            {/* Data & Backup */}
             {activeSection === "data" && (
-              <div className="space-y-4 sm:space-y-6">
+              <div className="space-y-5">
                 <h2 className="text-lg sm:text-xl font-semibold text-foreground">Data & Backup</h2>
-                <div className="space-y-3 sm:space-y-4">
-                  <div className="p-3 sm:p-4 rounded-xl bg-secondary/50">
-                    <p className="font-medium text-foreground mb-2 text-sm sm:text-base">Export Your Data</p>
+                <div className="space-y-3">
+                  <div className="p-4 rounded-xl bg-secondary/50">
+                    <p className="font-medium text-foreground mb-1 text-sm sm:text-base">Export Your Data</p>
                     <p className="text-xs sm:text-sm text-muted-foreground mb-3">Download all your tasks, notes, and study data</p>
                     <Button variant="outline" className="rounded-xl w-full sm:w-auto">
                       <Download className="w-4 h-4 mr-2" />
                       Export Data
                     </Button>
                   </div>
-                  <div className="p-3 sm:p-4 rounded-xl bg-secondary/50">
-                    <p className="font-medium text-foreground mb-2 text-sm sm:text-base">Cloud Sync</p>
-                    <p className="text-xs sm:text-sm text-muted-foreground mb-3">Sync your data across all devices</p>
-                    <Button className="btn-gradient rounded-xl w-full sm:w-auto">Enable Cloud Sync</Button>
+                  <div className="p-4 rounded-xl bg-secondary/50">
+                    <p className="font-medium text-foreground mb-1 text-sm sm:text-base">Cloud Sync</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground mb-3">
+                      Your data is automatically synced with Supabase cloud
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className="text-sm text-emerald-500 font-medium">Connected to cloud</span>
+                    </div>
                   </div>
-
-                  <div className="p-3 sm:p-4 rounded-xl bg-destructive/10 border border-destructive/20">
-                    <p className="font-medium text-destructive mb-2 text-sm sm:text-base">Danger Zone</p>
+                  <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20">
+                    <p className="font-medium text-destructive mb-1 text-sm sm:text-base">Danger Zone</p>
                     <p className="text-xs sm:text-sm text-muted-foreground mb-3">
                       Clear all app data and reset to fresh state. This action cannot be undone.
                     </p>
@@ -303,6 +437,7 @@ export default function Settings() {
                 </div>
               </div>
             )}
+
           </div>
         </div>
       </div>
