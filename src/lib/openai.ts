@@ -26,20 +26,13 @@ const PROMPTS: Record<AIFeatureId, (text: string, difficulty: string) => string>
     `Create a high-yield "Cheat Sheet" for last-minute revision. Focus ONLY on: 1) Key Definitions, 2) Important Formulas/Dates, 3) Crucial Facts. Use short bullet points or tables. Target level: ${difficulty}. Do NOT use JSON.\n\nMaterial:\n${text}`,
 };
 
-// Latest Groq models (2025/2026) in priority order — fastest & most capable first
+// Latest Groq models in priority order
 const MODEL_PRIORITIES = [
-  "moonsong-labs/moonsong-mistral-nemo",   // newest, fastest
-  "meta-llama/llama-4-scout-17b-16e-instruct", // Llama 4 Scout — latest
-  "llama-3.3-70b-versatile",               // proven fallback
-  "llama-3.1-8b-instant",                  // lightweight fallback
+  "llama-3.3-70b-versatile",
+  "llama-3.1-8b-instant",
+  "gemma2-9b-it",
 ];
 
-/**
- * Approximate token count (1 token ≈ 4 chars).
- * Free-tier TPM limit: ~12k tokens total (input + output).
- * We budget 3000 for output, leaving ~9000 for input+overhead.
- * Capping at 800 words (~1,100 tokens) keeps total well under limit.
- */
 const MAX_INPUT_WORDS = 800;
 
 function truncateText(text: string): string {
@@ -51,31 +44,18 @@ function truncateText(text: string): string {
   );
 }
 
-const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
-
 /**
- * Sanitize the API key:
- * - Strips BOM characters (U+FEFF)
- * - Strips surrounding whitespace / newlines
- * - Removes any non-ASCII / non-ISO-8859-1 code points that would
- *   cause the "String contains non ISO-8859-1 code point" fetch error
+ * Determine the proxy URL.
+ * - Capacitor WebView: uses absolute Vercel URL (no local /api endpoint)
+ * - Web (dev + production): uses relative /api/groq
+ *   - Dev: Vite proxies it to Groq, injecting auth header in Node.js
+ *   - Production: Vercel serverless function handles it
  */
-function sanitizeKey(raw: string): string {
-  // Remove BOM, trim whitespace
-  let key = raw.replace(/^\uFEFF/, "").trim();
-  // Keep only printable ASCII (0x20–0x7E) — safe for HTTP headers
-  // eslint-disable-next-line no-control-regex
-  key = key.replace(/[^\x20-\x7E]/g, "");
-  return key;
-}
-
-function getApiKey(): string {
-  const raw = import.meta.env.VITE_GROQ_API_KEY || "";
-  const key = sanitizeKey(raw);
-  if (!key) {
-    console.error("Missing VITE_GROQ_API_KEY in .env file!");
+function getProxyUrl(): string {
+  if (typeof window !== "undefined" && window.location.protocol === "capacitor:") {
+    return "https://study-spark-ai-beta.vercel.app/api/groq";
   }
-  return key;
+  return "/api/groq";
 }
 
 interface ChatMessage {
@@ -84,74 +64,49 @@ interface ChatMessage {
 }
 
 /**
- * Call Groq Chat Completions API (OpenAI-compatible)
+ * Call the /api/groq proxy — no Authorization header sent from browser.
+ * The proxy (Vite dev server or Vercel serverless) adds the API key server-side.
  */
 async function callGroq(
   messages: ChatMessage[],
   model: string = MODEL_PRIORITIES[0],
   maxTokens: number = 8192
 ): Promise<string> {
-  const apiKey = getApiKey();
-  if (!apiKey) {
-    throw new Error("Groq API key is not configured. Please add VITE_GROQ_API_KEY to your .env file.");
-  }
+  const proxyUrl = getProxyUrl();
 
-  // Build headers using Headers API to safely encode values
-  const headers = new Headers();
-  headers.set("Content-Type", "application/json");
-  headers.set("Authorization", `Bearer ${apiKey}`);
-
-  const response = await fetch(GROQ_API_URL, {
+  // Only Content-Type is sent — fully ISO-8859-1 safe, no auth header
+  const response = await fetch(proxyUrl, {
     method: "POST",
-    headers,
-    body: JSON.stringify({
-      model,
-      messages,
-      max_tokens: maxTokens,
-      temperature: 0.7,
-    }),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ messages, model, maxTokens }),
   });
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    const errorMessage = errorData?.error?.message || `HTTP ${response.status}`;
-    const errorCode = errorData?.error?.code || "";
+    const errorMessage = (errorData as any)?.error || `HTTP ${response.status}`;
+    const errorCode = (errorData as any)?.code || "";
 
-    console.error(`Groq Error [${response.status}]:`, { errorMessage, errorCode });
+    console.error(`Groq Proxy Error [${response.status}]:`, { errorMessage, errorCode });
 
-    // 401 = Invalid API key
     if (response.status === 401) {
       throw new Error(`AUTH_ERROR: Invalid Groq API key. Details: ${errorMessage}`);
     }
-
-    // 429 = Rate limit OR quota
     if (response.status === 429) {
-      if (errorMessage.toLowerCase().includes("quota") || errorCode === "insufficient_quota") {
+      if (String(errorMessage).toLowerCase().includes("quota") || errorCode === "insufficient_quota") {
         throw new Error(`QUOTA_ERROR: Groq quota exceeded. Details: ${errorMessage}`);
       }
       throw new Error(`RATE_LIMIT: ${errorMessage}`);
     }
-
-    // 404 = Model not found
     if (response.status === 404) {
       throw new Error(`MODEL_NOT_FOUND: ${errorMessage}`);
     }
-
-    // 400 = Could be a decommissioned/unsupported model — treat as skippable
-    if (response.status === 400 && errorMessage.toLowerCase().includes("decommission")) {
-      throw new Error(`MODEL_NOT_FOUND: ${errorMessage}`);
-    }
-
-    // 400 = Model not supported (new models not yet in free tier etc.)
     if (response.status === 400 && (
-      errorMessage.toLowerCase().includes("model") ||
-      errorMessage.toLowerCase().includes("not supported") ||
-      errorMessage.toLowerCase().includes("not found")
+      String(errorMessage).toLowerCase().includes("decommission") ||
+      String(errorMessage).toLowerCase().includes("model") ||
+      String(errorMessage).toLowerCase().includes("not supported")
     )) {
       throw new Error(`MODEL_NOT_FOUND: ${errorMessage}`);
     }
-
-    // 413 = Request too large (too many tokens)
     if (response.status === 413) {
       throw new Error(`TOO_LARGE: ${errorMessage}`);
     }
@@ -160,7 +115,7 @@ async function callGroq(
   }
 
   const data = await response.json();
-  return data.choices?.[0]?.message?.content || "";
+  return (data as any).content || "";
 }
 
 /**
@@ -176,7 +131,6 @@ export const generateStudyContent = async (
     throw new Error("Invalid feature selected");
   }
 
-  // Truncate input text before building the prompt
   const safeContent = truncateText(content);
   const prompt = promptGenerator(safeContent, difficulty);
   const messages: ChatMessage[] = [
@@ -193,17 +147,15 @@ export const generateStudyContent = async (
     try {
       console.log(`Trying Groq model: ${model}`);
       const result = await callGroq(messages, model, 3000);
-      console.log(`✓ Success with model: ${model}`);
+      console.log(`Success with model: ${model}`);
       return result;
     } catch (error: any) {
       const msg = error.message || String(error);
-      console.warn(`✗ ${model} failed:`, msg.substring(0, 200));
+      console.warn(`${model} failed:`, msg.substring(0, 200));
 
-      // Quota/Auth errors affect ALL models — stop immediately with clear message
       if (msg.startsWith("QUOTA_ERROR:") || msg.startsWith("AUTH_ERROR:")) {
         throw new Error(msg.replace(/^(QUOTA_ERROR|AUTH_ERROR):\s*/, ""));
       }
-
       if (msg.startsWith("RATE_LIMIT:") || msg.startsWith("TOO_LARGE:")) {
         errors.push(`${model}: ${msg.startsWith("TOO_LARGE:") ? "request too large" : "rate limited"}`);
         continue;
@@ -212,8 +164,6 @@ export const generateStudyContent = async (
         errors.push(`${model}: not available`);
         continue;
       }
-
-      // Non-recoverable — surface immediately
       throw error;
     }
   }
@@ -225,7 +175,7 @@ export const generateStudyContent = async (
 };
 
 /**
- * Chat with AI (used by AI Chat page)
+ * Chat with AI (AI Chat page)
  */
 export const chatWithAI = async (
   conversationHistory: { role: "user" | "assistant"; content: string }[],
@@ -248,12 +198,11 @@ export const chatWithAI = async (
 
   for (const model of MODEL_PRIORITIES) {
     try {
-      console.log(`AI Chat trying Groq model: ${model}`);
+      console.log(`AI Chat trying model: ${model}`);
       const result = await callGroq(messages, model, 4096);
       return result;
     } catch (error: any) {
       const msg = error.message || String(error);
-
       if (msg.startsWith("QUOTA_ERROR:") || msg.startsWith("AUTH_ERROR:")) {
         throw new Error(msg.replace(/^(QUOTA_ERROR|AUTH_ERROR):\s*/, ""));
       }
@@ -265,7 +214,7 @@ export const chatWithAI = async (
     }
   }
 
-  throw new Error("⏳ All AI models are currently rate-limited. Please wait a moment and try again.");
+  throw new Error("All AI models are currently rate-limited. Please wait a moment and try again.");
 };
 
 export { type AIFeatureId as default };
