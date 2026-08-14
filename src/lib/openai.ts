@@ -26,10 +26,12 @@ const PROMPTS: Record<AIFeatureId, (text: string, difficulty: string) => string>
     `Create a high-yield "Cheat Sheet" for last-minute revision. Focus ONLY on: 1) Key Definitions, 2) Important Formulas/Dates, 3) Crucial Facts. Use short bullet points or tables. Target level: ${difficulty}. Do NOT use JSON.\n\nMaterial:\n${text}`,
 };
 
-// Groq models in priority order
+// Latest Groq models (2025/2026) in priority order — fastest & most capable first
 const MODEL_PRIORITIES = [
-  "llama-3.3-70b-versatile",
-  "llama-3.1-8b-instant",
+  "moonsong-labs/moonsong-mistral-nemo",   // newest, fastest
+  "meta-llama/llama-4-scout-17b-16e-instruct", // Llama 4 Scout — latest
+  "llama-3.3-70b-versatile",               // proven fallback
+  "llama-3.1-8b-instant",                  // lightweight fallback
 ];
 
 /**
@@ -51,8 +53,25 @@ function truncateText(text: string): string {
 
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
+/**
+ * Sanitize the API key:
+ * - Strips BOM characters (U+FEFF)
+ * - Strips surrounding whitespace / newlines
+ * - Removes any non-ASCII / non-ISO-8859-1 code points that would
+ *   cause the "String contains non ISO-8859-1 code point" fetch error
+ */
+function sanitizeKey(raw: string): string {
+  // Remove BOM, trim whitespace
+  let key = raw.replace(/^\uFEFF/, "").trim();
+  // Keep only printable ASCII (0x20–0x7E) — safe for HTTP headers
+  // eslint-disable-next-line no-control-regex
+  key = key.replace(/[^\x20-\x7E]/g, "");
+  return key;
+}
+
 function getApiKey(): string {
-  const key = import.meta.env.VITE_GROQ_API_KEY || "";
+  const raw = import.meta.env.VITE_GROQ_API_KEY || "";
+  const key = sanitizeKey(raw);
   if (!key) {
     console.error("Missing VITE_GROQ_API_KEY in .env file!");
   }
@@ -77,12 +96,14 @@ async function callGroq(
     throw new Error("Groq API key is not configured. Please add VITE_GROQ_API_KEY to your .env file.");
   }
 
+  // Build headers using Headers API to safely encode values
+  const headers = new Headers();
+  headers.set("Content-Type", "application/json");
+  headers.set("Authorization", `Bearer ${apiKey}`);
+
   const response = await fetch(GROQ_API_URL, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
+    headers,
     body: JSON.stringify({
       model,
       messages,
@@ -118,6 +139,15 @@ async function callGroq(
 
     // 400 = Could be a decommissioned/unsupported model — treat as skippable
     if (response.status === 400 && errorMessage.toLowerCase().includes("decommission")) {
+      throw new Error(`MODEL_NOT_FOUND: ${errorMessage}`);
+    }
+
+    // 400 = Model not supported (new models not yet in free tier etc.)
+    if (response.status === 400 && (
+      errorMessage.toLowerCase().includes("model") ||
+      errorMessage.toLowerCase().includes("not supported") ||
+      errorMessage.toLowerCase().includes("not found")
+    )) {
       throw new Error(`MODEL_NOT_FOUND: ${errorMessage}`);
     }
 
